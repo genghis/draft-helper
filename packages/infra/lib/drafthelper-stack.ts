@@ -168,6 +168,19 @@ export class DraftHelperStack extends Stack {
       });
     }
 
+    // CDK's OAC wiring grants lambda:InvokeFunctionUrl only; the Lambda URL
+    // auth layer also requires lambda:InvokeFunction or it 403s every request
+    // (per the CloudFront OAC-for-Lambda docs, which grant both).
+    apiFn.addPermission("AllowCloudFrontInvokeFunction", {
+      principal: new iam.ServicePrincipal("cloudfront.amazonaws.com"),
+      action: "lambda:InvokeFunction",
+      sourceArn: this.formatArn({
+        service: "cloudfront",
+        region: "",
+        resource: `distribution/${distribution.distributionId}`,
+      }),
+    });
+
     const aliasTarget = route53.RecordTarget.fromAlias(
       new route53targets.CloudFrontTarget(distribution)
     );
