@@ -3,6 +3,9 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import type { Construct } from "constructs";
 
 const GITHUB_REPO = "genghis/draft-helper";
+// This repo issues ID-stamped OIDC subjects (owner@id/repo@id); trust both
+// that and the classic form so either claim format works.
+const GITHUB_REPO_IMMUTABLE = "genghis@736669/draft-helper@1310380644";
 
 /**
  * Deploy role for GitHub Actions, assumed via the account's existing GitHub
@@ -26,7 +29,10 @@ export class CiStack extends Stack {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
         },
         StringLike: {
-          "token.actions.githubusercontent.com:sub": `repo:${GITHUB_REPO}:ref:refs/heads/main`,
+          "token.actions.githubusercontent.com:sub": [
+            `repo:${GITHUB_REPO}:ref:refs/heads/main`,
+            `repo:${GITHUB_REPO_IMMUTABLE}:ref:refs/heads/main`,
+          ],
         },
       }),
     });
