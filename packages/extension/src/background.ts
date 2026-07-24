@@ -1,86 +1,33 @@
 /**
- * Service worker: accumulates pick events from the content script (websocket
- * frames + DOM rescans), debounces, and pushes the full known set to the
- * Draft Helper API. Pushing everything each time keeps the pipeline
- * self-healing — the server writes are idempotent and manual marks always
- * win there, so at-least-once delivery is free.
- *
- * MV3 service workers are killed after ~30s idle, so accumulated state lives
- * in chrome.storage.session (survives SW restarts within a browser session),
- * not a module-level variable that dies with the worker.
+ * Service worker: a thin, stateless forwarder. The content script accumulates
+ * the complete pick set (it outlives this worker) and sends a full cumulative
+ * snapshot on every change, so the worker just pushes whatever it last
+ * received to the API. Server writes are idempotent and manual marks always
+ * win there, so re-pushing the full set is free and self-healing.
  */
 
-import { parseDraftFrame } from "@drafthelper/shared";
 import { extApi, loadConfig, ExtApiError } from "./apiClient.js";
 
-const PUSH_DEBOUNCE_MS = 1500;
-const RETRY_BASE_MS = 5000;
+const PUSH_DEBOUNCE_MS = 800;
+const RETRY_BASE_MS = 4000;
 const MAX_RETRY_MS = 60_000;
 
-const STATE_KEY = "draftState";
-
-interface KnownPick {
+interface SnapshotPick {
   espnPlayerId: number;
-  overall: number;
   teamId: number;
+  overall: number;
 }
 
-interface DraftState {
+interface SnapshotMessage {
+  kind: "snapshot";
   myTeamId: number;
-  /** Keyed by espnPlayerId (as string, since storage keys are strings). */
-  picks: Record<string, KnownPick>;
+  picks: SnapshotPick[];
 }
 
+// Latest snapshot to push; overwritten by each newer one (they're cumulative).
+let latest: SnapshotMessage | null = null;
 let pushTimer: ReturnType<typeof setTimeout> | undefined;
 let retryDelay = RETRY_BASE_MS;
-
-// Serializes read-modify-write of session state so burst frames (all-autopick
-// drafts fire many at once) can't clobber each other's saves.
-let stateQueue: Promise<void> = Promise.resolve();
-function withState(fn: (state: DraftState) => boolean): Promise<void> {
-  stateQueue = stateQueue.then(async () => {
-    const state = await loadState();
-    const changed = fn(state);
-    if (changed) {
-      await saveState(state);
-      schedulePush();
-    }
-  });
-  return stateQueue;
-}
-
-async function loadState(): Promise<DraftState> {
-  const stored = await chrome.storage.session.get(STATE_KEY);
-  return (stored[STATE_KEY] as DraftState | undefined) ?? { myTeamId: 0, picks: {} };
-}
-
-async function saveState(state: DraftState): Promise<void> {
-  await chrome.storage.session.set({ [STATE_KEY]: state });
-}
-
-/**
- * Merges an observed pick into state. A real teamId (from a WS frame) always
- * upgrades a placeholder teamId 0 (from a DOM rescan), so "mine" attribution
- * is corrected even if the rescan saw the player first. Overall order is
- * assigned once, on first sighting, and never renumbered.
- */
-function mergePick(state: DraftState, espnPlayerId: number, teamId: number): boolean {
-  const key = String(espnPlayerId);
-  const existing = state.picks[key];
-  if (existing) {
-    if (existing.teamId === 0 && teamId > 0) {
-      existing.teamId = teamId;
-      return true;
-    }
-    return false;
-  }
-  state.picks[key] = {
-    espnPlayerId,
-    overall: Object.keys(state.picks).length + 1,
-    teamId,
-  };
-  return true;
-}
 
 function schedulePush(delay = PUSH_DEBOUNCE_MS): void {
   clearTimeout(pushTimer);
@@ -88,9 +35,8 @@ function schedulePush(delay = PUSH_DEBOUNCE_MS): void {
 }
 
 async function push(): Promise<void> {
-  const state = await loadState();
-  const picks = Object.values(state.picks);
-  if (picks.length === 0) return;
+  const snapshot = latest;
+  if (!snapshot || snapshot.picks.length === 0) return;
   const config = await loadConfig();
   if (!config) {
     void setBadge("!", "#c0392b", "No token configured — open extension options");
@@ -100,14 +46,14 @@ async function push(): Promise<void> {
     const result = await extApi<{ written: number; skipped: number; unmapped: number[] }>(
       config,
       "/ext/picks",
-      { method: "POST", body: { myTeamId: state.myTeamId, picks } }
+      { method: "POST", body: { myTeamId: snapshot.myTeamId, picks: snapshot.picks } }
     );
     retryDelay = RETRY_BASE_MS;
     await chrome.storage.local.set({ lastPush: new Date().toISOString() });
     void setBadge(
-      String(picks.length),
+      String(snapshot.picks.length),
       "#27ae60",
-      `Synced ${picks.length} picks (${result.unmapped.length} unmapped)`
+      `Synced ${snapshot.picks.length} picks (${result.unmapped.length} unmapped)`
     );
   } catch (err) {
     const message = err instanceof ExtApiError ? err.message : String(err);
@@ -127,44 +73,8 @@ async function setBadge(text: string, color: string, title: string): Promise<voi
   }
 }
 
-interface FrameMessage {
-  kind: "frame";
-  frame: string;
-  myTeamId: number;
-}
-
-interface RescanMessage {
-  kind: "rescan";
-  railIds: number[];
-  rosterIds: number[];
-  myTeamId: number;
-}
-
-chrome.runtime.onMessage.addListener((message: FrameMessage | RescanMessage) => {
-  // No response is sent, so don't return true / keep the channel open; the
-  // serialized state update runs detached.
-  void withState((state) => {
-    let changed = false;
-    if (message.myTeamId > 0 && state.myTeamId !== message.myTeamId) {
-      state.myTeamId = message.myTeamId;
-      changed = true;
-    }
-    if (message.kind === "frame") {
-      for (const event of parseDraftFrame(message.frame)) {
-        if (event.type === "pick") {
-          changed = mergePick(state, event.espnPlayerId, event.teamId) || changed;
-        }
-      }
-    } else {
-      // Roster ids are the viewer's own picks; rail ids belong to other teams
-      // (teamId 0 = unknown, upgraded later if a WS frame names the team).
-      for (const id of message.rosterIds) {
-        changed = mergePick(state, id, state.myTeamId || 0) || changed;
-      }
-      for (const id of message.railIds) {
-        changed = mergePick(state, id, 0) || changed;
-      }
-    }
-    return changed;
-  });
+chrome.runtime.onMessage.addListener((message: SnapshotMessage) => {
+  if (message?.kind !== "snapshot") return;
+  latest = message;
+  schedulePush();
 });
