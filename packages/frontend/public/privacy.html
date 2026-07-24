@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Draft Helper Sync — Privacy Policy</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, -apple-system, sans-serif; }
+      body { max-width: 42rem; margin: 2.5rem auto; padding: 0 1.25rem; line-height: 1.6; }
+      h1 { font-size: 1.6rem; }
+      h2 { font-size: 1.15rem; margin-top: 2rem; }
+      code { background: color-mix(in srgb, currentColor 10%, transparent); padding: 0.1rem 0.3rem; border-radius: 4px; }
+      .muted { opacity: 0.65; font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Draft Helper Sync — Privacy Policy</h1>
+    <p class="muted">Last updated: 24 July 2026</p>
+
+    <p>
+      Draft Helper Sync is a Chrome extension that mirrors picks from your ESPN
+      fantasy football draft room onto your own Draft Helper board in real time.
+      It is a private tool for one fantasy league. This policy explains exactly
+      what it handles.
+    </p>
+
+    <h2>What the extension accesses</h2>
+    <ul>
+      <li>
+        <strong>Draft picks from the page you have open.</strong> While you are
+        in an ESPN draft room (<code>fantasy.espn.com/football/draft*</code>), the
+        extension reads the picks as they happen — the player selected, the pick
+        number, and which team made the pick. It does not read anything else on
+        the page and is inactive on every other site.
+      </li>
+      <li>
+        <strong>A sync token you paste in.</strong> You generate this token in
+        Draft Helper and paste it into the extension once. It identifies your
+        account so picks land on your board.
+      </li>
+    </ul>
+
+    <h2>What it does with that data</h2>
+    <ul>
+      <li>
+        Picks are sent, over HTTPS, only to the Draft Helper API at
+        <code>draft.clanseafox.com</code> — the app you already use. They are
+        stored on your own Draft Helper board so you can see them there.
+      </li>
+      <li>
+        The token is stored locally in your browser's extension storage and sent
+        with those requests to authenticate you. Nothing else is transmitted.
+      </li>
+    </ul>
+
+    <h2>What it does <em>not</em> do</h2>
+    <ul>
+      <li>No advertising, analytics, tracking, or third-party services.</li>
+      <li>No selling or sharing of data with anyone.</li>
+      <li>
+        No access to your ESPN login, password, or account — it only reads pick
+        data shown on the draft page.
+      </li>
+      <li>No browsing history, and no activity on any site other than the ESPN draft room.</li>
+    </ul>
+
+    <h2>Data retention and removal</h2>
+    <p>
+      Draft picks live on your Draft Helper board until you clear them (the
+      app's “Reset draft” action). Remove the extension to delete the stored
+      token from your browser; revoke it any time under Draft Helper → Settings.
+    </p>
+
+    <h2>Contact</h2>
+    <p>Questions: <a href="mailto:genghis.philip@gmail.com">genghis.philip@gmail.com</a>.</p>
+  </body>
+</html>

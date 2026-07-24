@@ -6,3 +6,6 @@ cdk.out/
 *.local
 .DS_Store
 coverage/
+
+# Chrome Web Store upload artifact
+packages/extension/*.zip

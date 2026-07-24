@@ -2,6 +2,7 @@ import { cpSync, mkdirSync } from "node:fs";
 import { build } from "esbuild";
 
 mkdirSync("dist", { recursive: true });
+mkdirSync("dist/icons", { recursive: true });
 
 // Content scripts must be classic scripts (IIFE); the service worker and
 // options page are ES modules.
@@ -23,5 +24,8 @@ await build({
 
 cpSync("manifest.json", "dist/manifest.json");
 cpSync("src/options.html", "dist/options.html");
+for (const size of [16, 48, 128]) {
+  cpSync(`icons/icon${size}.png`, `dist/icons/icon${size}.png`);
+}
 
 console.log("extension built into dist/ — load it unpacked from there");
