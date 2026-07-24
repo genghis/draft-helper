@@ -1,13 +1,19 @@
-import { useEffect, useState } from "react";
-import type { SessionUser } from "@drafthelper/shared";
+import { useCallback, useEffect, useState } from "react";
+import type { BoardMeta, SessionUser } from "@drafthelper/shared";
 import { api, ApiError } from "./api/client";
+import { usePlayers } from "./state/players";
 import { AdminPanel } from "./views/AdminPanel";
+import { BoardsView } from "./views/BoardsView";
+import { ImportView } from "./views/ImportView";
 import "./App.css";
 
 type AuthState = { status: "loading" } | { status: "out" } | { status: "in"; user: SessionUser };
 
 export function App() {
   const [auth, setAuth] = useState<AuthState>({ status: "loading" });
+  const [boards, setBoards] = useState<BoardMeta[]>([]);
+  const [view, setView] = useState<"boards" | "import">("boards");
+  const { players, byId, error: playersError } = usePlayers();
 
   useEffect(() => {
     api<SessionUser>("/me")
@@ -16,6 +22,16 @@ export function App() {
         if (err instanceof ApiError && err.status === 401) setAuth({ status: "out" });
         else throw err;
       });
+  }, []);
+
+  const signedIn = auth.status === "in";
+  useEffect(() => {
+    if (signedIn) api<BoardMeta[]>("/boards").then(setBoards);
+  }, [signedIn]);
+
+  const onCreated = useCallback((meta: BoardMeta) => {
+    setBoards((prev) => [...prev, meta]);
+    setView("boards");
   }, []);
 
   return (
@@ -27,7 +43,21 @@ export function App() {
       )}
       {auth.status === "in" && (
         <>
-          <p>Welcome, {auth.user.name}.</p>
+          {playersError && <p className="app-error">Player list failed to load: {playersError}</p>}
+          {view === "import" && players ? (
+            <ImportView
+              players={players}
+              onCreated={onCreated}
+              onCancel={() => setView("boards")}
+            />
+          ) : (
+            <BoardsView
+              boards={boards}
+              playersById={byId}
+              onImport={() => setView("import")}
+              onBoardDeleted={(id) => setBoards((prev) => prev.filter((b) => b.id !== id))}
+            />
+          )}
           {auth.user.admin && <AdminPanel />}
         </>
       )}

@@ -1,0 +1,157 @@
+import { randomUUID } from "node:crypto";
+import {
+  GetCommand,
+  ScanCommand,
+  TransactWriteCommand,
+  UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
+import type {
+  BoardLayout,
+  BoardMeta,
+  BoardPosition,
+  Placement,
+  ScoringFormat,
+  TierBand,
+} from "@drafthelper/shared";
+import { ddb, TABLE_NAME } from "./client.js";
+
+export interface NewBoard {
+  name: string;
+  position: BoardPosition;
+  scoring: ScoringFormat;
+  bands: TierBand[];
+  placements: Record<string, Placement>;
+}
+
+function toMeta(id: string, item: Record<string, unknown>): BoardMeta {
+  return {
+    id,
+    ownerId: item.ownerId as string,
+    name: item.name as string,
+    position: item.position as BoardPosition,
+    scoring: item.scoring as ScoringFormat,
+    bands: (item.bands as TierBand[]) ?? [],
+    createdAt: item.createdAt as string,
+    updatedAt: item.updatedAt as string,
+  };
+}
+
+export async function createBoard(ownerId: string, input: NewBoard): Promise<BoardMeta> {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  await ddb.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Put: {
+            TableName: TABLE_NAME,
+            Item: {
+              pk: `BOARD#${id}`,
+              sk: "META",
+              ownerId,
+              name: input.name,
+              position: input.position,
+              scoring: input.scoring,
+              bands: input.bands,
+              createdAt: now,
+              updatedAt: now,
+            },
+          },
+        },
+        {
+          Put: {
+            TableName: TABLE_NAME,
+            Item: {
+              pk: `BOARD#${id}`,
+              sk: "LAYOUT",
+              placements: input.placements,
+              version: 1,
+            },
+          },
+        },
+      ],
+    })
+  );
+  return toMeta(id, {
+    ownerId,
+    name: input.name,
+    position: input.position,
+    scoring: input.scoring,
+    bands: input.bands,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+/** Scan is fine: a league's worth of boards is tiny. */
+export async function listBoards(ownerId: string): Promise<BoardMeta[]> {
+  const res = await ddb.send(
+    new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: "sk = :meta AND ownerId = :owner",
+      ExpressionAttributeValues: { ":meta": "META", ":owner": ownerId },
+    })
+  );
+  return (res.Items ?? [])
+    .map((item) => toMeta((item.pk as string).replace(/^BOARD#/, ""), item))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+export async function getBoard(
+  boardId: string
+): Promise<{ meta: BoardMeta; layout: BoardLayout } | null> {
+  const [metaRes, layoutRes] = await Promise.all([
+    ddb.send(
+      new GetCommand({ TableName: TABLE_NAME, Key: { pk: `BOARD#${boardId}`, sk: "META" } })
+    ),
+    ddb.send(
+      new GetCommand({ TableName: TABLE_NAME, Key: { pk: `BOARD#${boardId}`, sk: "LAYOUT" } })
+    ),
+  ]);
+  if (!metaRes.Item || !layoutRes.Item) return null;
+  return {
+    meta: toMeta(boardId, metaRes.Item),
+    layout: {
+      placements: layoutRes.Item.placements as Record<string, Placement>,
+      version: layoutRes.Item.version as number,
+    },
+  };
+}
+
+/** Optimistic concurrency: succeeds only against the expected version. */
+export async function putLayout(
+  boardId: string,
+  placements: Record<string, Placement>,
+  expectedVersion: number
+): Promise<number | null> {
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { pk: `BOARD#${boardId}`, sk: "LAYOUT" },
+        UpdateExpression: "SET placements = :p, version = :next",
+        ConditionExpression: "version = :expected",
+        ExpressionAttributeValues: {
+          ":p": placements,
+          ":next": expectedVersion + 1,
+          ":expected": expectedVersion,
+        },
+      })
+    );
+    return expectedVersion + 1;
+  } catch (err) {
+    if ((err as { name?: string }).name === "ConditionalCheckFailedException") return null;
+    throw err;
+  }
+}
+
+export async function deleteBoard(boardId: string): Promise<void> {
+  await ddb.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        { Delete: { TableName: TABLE_NAME, Key: { pk: `BOARD#${boardId}`, sk: "META" } } },
+        { Delete: { TableName: TABLE_NAME, Key: { pk: `BOARD#${boardId}`, sk: "LAYOUT" } } },
+      ],
+    })
+  );
+}

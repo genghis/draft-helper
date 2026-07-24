@@ -1,0 +1,6 @@
+Tier 1: Denver Broncos, New England Patriots, Pittsburgh Steelers, Detroit Lions
+Tier 2: Seattle Seahawks, Houston Texans, New Orleans Saints, Tampa Bay Buccaneers
+Tier 3: New York Giants, Los Angeles Rams
+Tier 4: Dallas Cowboys, Jacksonville Jaguars, Los Angeles Chargers, Tennessee Titans
+Tier 5: Green Bay Packers
+Tier 6: Cincinnati Bengals, Buffalo Bills, Cleveland Browns, Minnesota Vikings, Baltimore Ravens

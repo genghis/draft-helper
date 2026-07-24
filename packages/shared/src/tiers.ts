@@ -1,0 +1,85 @@
+import type { Placement, TierBand } from "./types.js";
+
+/** Vertical canvas units per rank position; y = value, smaller is better. */
+export const RANK_SPACING = 10;
+/** Default horizontal center for imported placements. */
+export const DEFAULT_X = 500;
+
+export interface RankedPlayer {
+  playerId: string;
+  rank: number;
+  tier: number;
+}
+
+/**
+ * Lays ranked, tiered players onto the canvas: y from rank, tier bands as
+ * horizontal stripes with boundaries midway between adjacent tiers' ranks.
+ */
+export function layoutFromRanked(ranked: RankedPlayer[]): {
+  placements: Record<string, Placement>;
+  bands: TierBand[];
+} {
+  const sorted = [...ranked].sort((a, b) => a.rank - b.rank);
+  const placements: Record<string, Placement> = {};
+  for (const r of sorted) {
+    placements[r.playerId] = { x: DEFAULT_X, y: r.rank * RANK_SPACING };
+  }
+
+  const bands: TierBand[] = [];
+  const tiers = [...new Set(sorted.map((r) => r.tier))].sort((a, b) => a - b);
+  for (const tier of tiers) {
+    const inTier = sorted.filter((r) => r.tier === tier);
+    const prev = bands[bands.length - 1];
+    const first = inTier[0]!.rank;
+    const last = inTier[inTier.length - 1]!.rank;
+    const nextTier = tiers[tiers.indexOf(tier) + 1];
+    const nextFirst = nextTier
+      ? sorted.find((r) => r.tier === nextTier)!.rank
+      : last + 1;
+    bands.push({
+      y0: prev ? prev.y1 : (first - 0.5) * RANK_SPACING,
+      y1: ((last + nextFirst) / 2) * RANK_SPACING,
+      label: `Tier ${tier}`,
+    });
+  }
+  return { placements, bands };
+}
+
+export interface BandGroup {
+  band: TierBand;
+  playerIds: string[];
+}
+
+/**
+ * Projects canvas placements back into tiered lists: players grouped by the
+ * band containing their y, sorted by y within each band. Players outside
+ * every band are appended to the nearest band.
+ */
+export function projectBands(
+  placements: Record<string, Placement>,
+  bands: TierBand[]
+): BandGroup[] {
+  const groups: BandGroup[] = bands.map((band) => ({ band, playerIds: [] }));
+  if (groups.length === 0) {
+    return [
+      {
+        band: { y0: 0, y1: Number.MAX_SAFE_INTEGER, label: "All" },
+        playerIds: Object.keys(placements).sort(
+          (a, b) => placements[a]!.y - placements[b]!.y
+        ),
+      },
+    ];
+  }
+  const ids = Object.keys(placements).sort(
+    (a, b) => placements[a]!.y - placements[b]!.y
+  );
+  for (const id of ids) {
+    const y = placements[id]!.y;
+    let group = groups.find((g) => y >= g.band.y0 && y < g.band.y1);
+    if (!group) {
+      group = y < groups[0]!.band.y0 ? groups[0]! : groups[groups.length - 1]!;
+    }
+    group.playerIds.push(id);
+  }
+  return groups;
+}

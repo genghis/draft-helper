@@ -16,3 +16,11 @@ body {
 .muted {
   opacity: 0.65;
 }
+
+.app-error {
+  color: #c0392b;
+}
+
+button.secondary {
+  opacity: 0.75;
+}

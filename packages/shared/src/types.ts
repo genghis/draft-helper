@@ -31,10 +31,14 @@ export interface TierBand {
   label: string;
 }
 
+/** Boards are per-position in Phase 1, mirroring how tier sources publish. */
+export type BoardPosition = Position | "FLX";
+
 export interface BoardMeta {
   id: string;
   ownerId: string;
   name: string;
+  position: BoardPosition;
   scoring: ScoringFormat;
   bands: TierBand[];
   createdAt: string;
@@ -51,13 +55,40 @@ export interface BoardLayout {
 export type PickSource = "espn" | "manual";
 
 export interface Pick {
-  /** Overall pick number, 1-based. */
-  overall: number;
   playerId: string;
   source: PickSource;
   /** True when this pick belongs to the session owner's team. */
   mine: boolean;
   pickedAt: string;
+  /** Overall pick number, 1-based; known for ESPN-synced picks. */
+  overall?: number;
+}
+
+/** One row parsed from any rankings source, before player matching. */
+export interface ParsedEntry {
+  name: string;
+  rank: number;
+  tier: number;
+}
+
+export interface MatchCandidate {
+  player: Player;
+  distance: number;
+}
+
+export interface MatchedEntry {
+  entry: ParsedEntry;
+  player: Player;
+}
+
+export interface UnmatchedEntry {
+  entry: ParsedEntry;
+  candidates: MatchCandidate[];
+}
+
+export interface MatchResult {
+  matched: MatchedEntry[];
+  unmatched: UnmatchedEntry[];
 }
 
 export type SyncStatus = "off" | "live" | "stale" | "error";
