@@ -1,0 +1,92 @@
+.canvas-wrap {
+  position: relative;
+}
+
+.canvas-saving {
+  position: absolute;
+  top: -1.4rem;
+  right: 0;
+  font-size: 0.8rem;
+}
+
+.canvas-surface {
+  position: relative;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 8px;
+  overflow: hidden;
+  touch-action: none; /* pointer-event dragging owns touch gestures */
+}
+
+.canvas-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.canvas-band-alt {
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+.canvas-band-label {
+  position: absolute;
+  top: 0.15rem;
+  left: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  opacity: 0.45;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.canvas-boundary {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 10px;
+  margin-top: -5px;
+  cursor: row-resize;
+  z-index: 2;
+}
+
+.canvas-boundary::after {
+  content: "";
+  display: block;
+  margin-top: 4px;
+  border-top: 2px dashed color-mix(in srgb, currentColor 40%, transparent);
+}
+
+.canvas-chip {
+  position: absolute;
+  transform: translateX(-50%);
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  background: canvas;
+  color: inherit;
+  cursor: grab;
+  z-index: 1;
+}
+
+.canvas-chip:active {
+  cursor: grabbing;
+  z-index: 3;
+}
+
+.canvas-chip-gone {
+  opacity: 0.3;
+  text-decoration: line-through;
+}
+
+.canvas-chip-mine {
+  border-color: #27ae60;
+  background: color-mix(in srgb, #2ecc71 18%, canvas);
+}

@@ -90,3 +90,11 @@
   color: #27ae60;
   padding: 0 0.5rem;
 }
+
+.tier-espn-tag {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #2980b9;
+  padding: 0 0.5rem;
+}

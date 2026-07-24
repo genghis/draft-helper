@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Draft Helper Sync",
+  "version": "0.1.0",
+  "description": "Watches your ESPN draft room and marks picks on your Draft Helper board automatically.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://draft.clanseafox.com/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["https://fantasy.espn.com/football/draft*"],
+      "js": ["page.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://fantasy.espn.com/football/draft*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "options_page": "options.html",
+  "action": { "default_title": "Draft Helper Sync" }
+}

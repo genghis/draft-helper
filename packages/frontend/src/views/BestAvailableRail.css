@@ -1,0 +1,43 @@
+.rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.6rem;
+}
+
+.rail-card {
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+}
+
+.rail-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.rail-position {
+  font-weight: 700;
+}
+
+.rail-scarcity {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.rail-scarcity-low {
+  opacity: 1;
+  color: #c0392b;
+  font-weight: 700;
+}
+
+.rail-names {
+  margin: 0.35rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.9rem;
+}
+
+.rail-names li {
+  padding: 0.1rem 0;
+}

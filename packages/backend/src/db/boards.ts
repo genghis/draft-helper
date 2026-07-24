@@ -145,6 +145,42 @@ export async function putLayout(
   }
 }
 
+/** Updates name and/or bands (canvas band-boundary edits land here). */
+export async function updateBoardMeta(
+  boardId: string,
+  changes: { name?: string; bands?: TierBand[] }
+): Promise<BoardMeta | null> {
+  const sets: string[] = ["updatedAt = :now"];
+  const values: Record<string, unknown> = { ":now": new Date().toISOString() };
+  if (changes.name !== undefined) {
+    sets.push("#n = :name");
+    values[":name"] = changes.name;
+  }
+  if (changes.bands !== undefined) {
+    sets.push("bands = :bands");
+    values[":bands"] = changes.bands;
+  }
+  try {
+    const res = await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { pk: `BOARD#${boardId}`, sk: "META" },
+        UpdateExpression: `SET ${sets.join(", ")}`,
+        ConditionExpression: "attribute_exists(pk)",
+        ...(changes.name !== undefined
+          ? { ExpressionAttributeNames: { "#n": "name" } }
+          : {}),
+        ExpressionAttributeValues: values,
+        ReturnValues: "ALL_NEW",
+      })
+    );
+    return res.Attributes ? toMeta(boardId, res.Attributes) : null;
+  } catch (err) {
+    if ((err as { name?: string }).name === "ConditionalCheckFailedException") return null;
+    throw err;
+  }
+}
+
 export async function deleteBoard(boardId: string): Promise<void> {
   await ddb.send(
     new TransactWriteCommand({

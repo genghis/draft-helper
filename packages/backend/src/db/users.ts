@@ -3,6 +3,7 @@ import {
   GetCommand,
   ScanCommand,
   TransactWriteCommand,
+  UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import type { AdminUserRow, SessionUser } from "@drafthelper/shared";
 import { hashInviteToken } from "../lib/session.js";
@@ -61,6 +62,22 @@ export async function listUsers(): Promise<AdminUserRow[]> {
       hasEspnAuth: item.espn != null,
     }))
     .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
+}
+
+/** Stores (or clears) the user's ESPN league + cookie settings. */
+export async function setEspnSettings(
+  userId: string,
+  espn: UserProfile["espn"] | null
+): Promise<void> {
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: `USER#${userId}`, sk: "PROFILE" },
+      UpdateExpression: espn ? "SET espn = :espn" : "REMOVE espn",
+      ...(espn ? { ExpressionAttributeValues: { ":espn": espn } } : {}),
+      ConditionExpression: "attribute_exists(pk)",
+    })
+  );
 }
 
 function newInviteToken(): { token: string; hash: string } {

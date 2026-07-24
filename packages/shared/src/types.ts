@@ -91,16 +91,30 @@ export interface MatchResult {
   unmatched: UnmatchedEntry[];
 }
 
-export type SyncStatus = "off" | "live" | "stale" | "error";
+/** One pick as observed by the browser extension in the ESPN draft room. */
+export interface ExtPickInput {
+  espnPlayerId: number;
+  /** 1-based arrival order as counted by the extension. */
+  overall: number;
+  /** ESPN fantasy team id that made the pick. */
+  teamId: number;
+}
 
-export interface DraftSession {
-  id: string;
-  boardId: string;
-  ownerId: string;
-  espnLeagueId: string | null;
-  espnSeason: number | null;
-  syncStatus: SyncStatus;
-  createdAt: string;
+export interface ExtPicksRequest {
+  /** The user's own ESPN team id (from the draft-room URL). */
+  myTeamId: number;
+  picks: ExtPickInput[];
+}
+
+export interface DraftSync {
+  /** Last time the extension pushed picks, or null if it never has. */
+  lastPushAt: string | null;
+}
+
+/** Response shape of GET /api/draft. */
+export interface DraftState {
+  picks: Pick[];
+  sync: DraftSync;
 }
 
 export interface SessionUser {

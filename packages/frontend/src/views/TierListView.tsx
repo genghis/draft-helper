@@ -62,6 +62,9 @@ export function TierListView({ meta, layout, playersById, picks, onMark, onUnmar
                       </button>
                     )}
                     {gone && pick.mine && <span className="tier-mine-tag">my pick</span>}
+                    {gone && pick.source === "espn" && (
+                      <span className="tier-espn-tag">espn</span>
+                    )}
                   </li>
                 );
               })}

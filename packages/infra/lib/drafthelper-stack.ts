@@ -68,9 +68,12 @@ export class DraftHelperStack extends Stack {
       environment: {
         TABLE_NAME: table.tableName,
         SESSION_SECRET_PARAM,
+        // The ext-picks route maps ESPN ids through the published players.json.
+        SITE_BUCKET: siteBucket.bucketName,
       },
     });
     table.grantReadWriteData(apiFn);
+    siteBucket.grantRead(apiFn, "players.json");
     apiFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],

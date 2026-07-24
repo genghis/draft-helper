@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { BoardLayout, BoardMeta, Player } from "@drafthelper/shared";
 import { api } from "../api/client";
 import { useDraft } from "../state/draft";
+import { BoardCanvas } from "./BoardCanvas";
 import { TierListView } from "./TierListView";
 import "./BoardsView.css";
 
@@ -15,6 +16,8 @@ interface Props {
 export function BoardsView({ boards, playersById, onImport, onBoardDeleted }: Props) {
   const [activeId, setActiveId] = useState<string | null>(boards[0]?.id ?? null);
   const [board, setBoard] = useState<{ meta: BoardMeta; layout: BoardLayout } | null>(null);
+  const [mode, setMode] = useState<"list" | "canvas">("list");
+  const [conflictNotice, setConflictNotice] = useState(false);
   const draft = useDraft();
 
   useEffect(() => {
@@ -24,13 +27,20 @@ export function BoardsView({ boards, playersById, onImport, onBoardDeleted }: Pr
     }
   }, [boards, activeId]);
 
-  useEffect(() => {
+  const loadBoard = useCallback(() => {
     if (!activeId) {
       setBoard(null);
       return;
     }
     api<{ meta: BoardMeta; layout: BoardLayout }>(`/boards/${activeId}`).then(setBoard);
   }, [activeId]);
+
+  useEffect(loadBoard, [loadBoard]);
+
+  const onConflict = useCallback(() => {
+    setConflictNotice(true);
+    loadBoard();
+  }, [loadBoard]);
 
   async function removeBoard(id: string) {
     if (!window.confirm("Delete this board?")) return;
@@ -71,13 +81,30 @@ export function BoardsView({ boards, playersById, onImport, onBoardDeleted }: Pr
           + Import
         </button>
       </nav>
+      {conflictNotice && (
+        <p className="app-error">
+          Board was updated elsewhere — reloaded the latest version.{" "}
+          <button type="button" className="secondary" onClick={() => setConflictNotice(false)}>
+            Dismiss
+          </button>
+        </p>
+      )}
       {board && (
         <>
           <div className="board-toolbar">
             <span className="muted">
-              Tap a player when they're drafted; tap again to undo.
+              {mode === "list"
+                ? "Tap a player when they're drafted; tap again to undo."
+                : "Drag players to rearrange; drag dashed lines to move tier breaks."}
             </span>
             <span className="board-toolbar-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setMode(mode === "list" ? "canvas" : "list")}
+              >
+                {mode === "list" ? "Canvas view" : "List view"}
+              </button>
               <button type="button" className="secondary" onClick={resetDraft}>
                 Reset draft
               </button>
@@ -90,14 +117,26 @@ export function BoardsView({ boards, playersById, onImport, onBoardDeleted }: Pr
               </button>
             </span>
           </div>
-          <TierListView
-            meta={board.meta}
-            layout={board.layout}
-            playersById={playersById}
-            picks={draft.picks}
-            onMark={draft.mark}
-            onUnmark={draft.unmark}
-          />
+          {mode === "list" ? (
+            <TierListView
+              meta={board.meta}
+              layout={board.layout}
+              playersById={playersById}
+              picks={draft.picks}
+              onMark={draft.mark}
+              onUnmark={draft.unmark}
+            />
+          ) : (
+            <BoardCanvas
+              key={board.meta.id}
+              meta={board.meta}
+              layout={board.layout}
+              playersById={playersById}
+              picks={draft.picks}
+              onMetaChanged={(meta) => setBoard((prev) => (prev ? { ...prev, meta } : prev))}
+              onConflict={onConflict}
+            />
+          )}
         </>
       )}
     </section>

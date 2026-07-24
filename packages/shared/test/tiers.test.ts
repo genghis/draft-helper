@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { layoutFromRanked, projectBands, RANK_SPACING } from "../src/tiers.js";
+import {
+  bestAvailable,
+  currentTierScarcity,
+  layoutFromRanked,
+  moveBandBoundary,
+  projectBands,
+  RANK_SPACING,
+} from "../src/tiers.js";
 
 const ranked = [
   { playerId: "a", rank: 1, tier: 1 },
@@ -44,5 +51,54 @@ describe("projectBands", () => {
     const groups = projectBands({ a: { x: 0, y: 5 }, b: { x: 0, y: 1 } }, []);
     expect(groups).toHaveLength(1);
     expect(groups[0]!.playerIds).toEqual(["b", "a"]);
+  });
+});
+
+describe("bestAvailable", () => {
+  it("returns top remaining by y, excluding picked", () => {
+    const { placements } = layoutFromRanked(ranked);
+    expect(bestAvailable(placements, new Set(["a"]), 2)).toEqual(["b", "c"]);
+    expect(bestAvailable(placements, new Set(), 3)).toEqual(["a", "b", "c"]);
+    expect(bestAvailable(placements, new Set(["a", "b", "c", "d", "e"]))).toEqual([]);
+  });
+});
+
+describe("currentTierScarcity", () => {
+  it("reports the first band with players left", () => {
+    const { placements, bands } = layoutFromRanked(ranked);
+    expect(currentTierScarcity(placements, bands, new Set(["a"]))).toEqual({
+      band: bands[0],
+      remaining: 1,
+    });
+    expect(currentTierScarcity(placements, bands, new Set(["a", "b"]))).toEqual({
+      band: bands[1],
+      remaining: 2,
+    });
+    expect(
+      currentTierScarcity(placements, bands, new Set(["a", "b", "c", "d", "e"]))
+    ).toBeNull();
+  });
+});
+
+describe("moveBandBoundary", () => {
+  it("moves the shared boundary keeping bands contiguous", () => {
+    const { bands } = layoutFromRanked(ranked);
+    const moved = moveBandBoundary(bands, 0, bands[0]!.y1 + 7);
+    expect(moved[0]!.y1).toBe(bands[0]!.y1 + 7);
+    expect(moved[1]!.y0).toBe(moved[0]!.y1);
+    expect(moved[2]).toEqual(bands[2]);
+  });
+
+  it("clamps so neither band collapses", () => {
+    const { bands } = layoutFromRanked(ranked);
+    const tooHigh = moveBandBoundary(bands, 0, -999);
+    expect(tooHigh[0]!.y1).toBe(bands[0]!.y0 + RANK_SPACING);
+    const tooLow = moveBandBoundary(bands, 0, 99999);
+    expect(tooLow[0]!.y1).toBe(bands[1]!.y1 - RANK_SPACING);
+  });
+
+  it("ignores out-of-range indexes", () => {
+    const { bands } = layoutFromRanked(ranked);
+    expect(moveBandBoundary(bands, 5, 10)).toBe(bands);
   });
 });

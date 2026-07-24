@@ -50,6 +50,59 @@ export interface BandGroup {
   playerIds: string[];
 }
 
+/** Top remaining players on a board (ids sorted by y, picked ones excluded). */
+export function bestAvailable(
+  placements: Record<string, Placement>,
+  picked: ReadonlySet<string>,
+  limit = 3
+): string[] {
+  return Object.keys(placements)
+    .filter((id) => !picked.has(id))
+    .sort((a, b) => placements[a]!.y - placements[b]!.y)
+    .slice(0, limit);
+}
+
+/**
+ * Moves the boundary between bands[index] and bands[index+1], clamped so
+ * neither band collapses below minHeight. Bands stay contiguous (y1[i] ===
+ * y0[i+1]). Returns a new array; the input is not mutated.
+ */
+export function moveBandBoundary(
+  bands: TierBand[],
+  index: number,
+  newY: number,
+  minHeight = RANK_SPACING
+): TierBand[] {
+  const upper = bands[index];
+  const lower = bands[index + 1];
+  if (!upper || !lower) return bands;
+  const y = Math.min(Math.max(newY, upper.y0 + minHeight), lower.y1 - minHeight);
+  return bands.map((band, i) =>
+    i === index ? { ...band, y1: y } : i === index + 1 ? { ...band, y0: y } : band
+  );
+}
+
+export interface TierScarcity {
+  band: TierBand;
+  remaining: number;
+}
+
+/**
+ * The board's current tier (first band with anyone left) and how many remain
+ * in it — the "1 RB left in Tier 3" warning input.
+ */
+export function currentTierScarcity(
+  placements: Record<string, Placement>,
+  bands: TierBand[],
+  picked: ReadonlySet<string>
+): TierScarcity | null {
+  for (const group of projectBands(placements, bands)) {
+    const remaining = group.playerIds.filter((id) => !picked.has(id)).length;
+    if (remaining > 0) return { band: group.band, remaining };
+  }
+  return null;
+}
+
 /**
  * Projects canvas placements back into tiered lists: players grouped by the
  * band containing their y, sorted by y within each band. Players outside

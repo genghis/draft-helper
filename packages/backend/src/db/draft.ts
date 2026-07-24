@@ -1,10 +1,11 @@
 import {
   BatchWriteCommand,
   DeleteCommand,
+  GetCommand,
   PutCommand,
   QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
-import type { Pick, PickSource } from "@drafthelper/shared";
+import type { DraftSync, Pick, PickSource } from "@drafthelper/shared";
 import { ddb, TABLE_NAME } from "./client.js";
 
 /**
@@ -49,6 +50,67 @@ export async function putPick(
     })
   );
   return pick;
+}
+
+/**
+ * Writes an ESPN-observed pick without ever clobbering a manual mark: the
+ * conditional put succeeds when the item is new or already ESPN-sourced
+ * (re-pushes are idempotent). Returns false when a manual mark won.
+ * `source` is a DynamoDB reserved word, hence the #src alias.
+ */
+export async function putEspnPick(
+  userId: string,
+  pick: { playerId: string; mine: boolean; overall: number }
+): Promise<boolean> {
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+          pk: `DRAFT#${userId}`,
+          sk: `PICK#${pick.playerId}`,
+          playerId: pick.playerId,
+          source: "espn",
+          mine: pick.mine,
+          pickedAt: new Date().toISOString(),
+          overall: pick.overall,
+        },
+        ConditionExpression: "attribute_not_exists(pk) OR #src = :espn",
+        ExpressionAttributeNames: { "#src": "source" },
+        ExpressionAttributeValues: { ":espn": "espn" },
+      })
+    );
+    return true;
+  } catch (err) {
+    if ((err as { name?: string }).name === "ConditionalCheckFailedException") {
+      return false;
+    }
+    throw err;
+  }
+}
+
+/** Records that the extension just pushed; the sync-health chip reads this. */
+export async function touchDraftMeta(userId: string): Promise<void> {
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        pk: `DRAFT#${userId}`,
+        sk: "META",
+        lastExtPushAt: new Date().toISOString(),
+      },
+    })
+  );
+}
+
+export async function getDraftSync(userId: string): Promise<DraftSync> {
+  const res = await ddb.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: `DRAFT#${userId}`, sk: "META" },
+    })
+  );
+  return { lastPushAt: (res.Item?.lastExtPushAt as string) ?? null };
 }
 
 export async function deletePick(userId: string, playerId: string): Promise<void> {
