@@ -73,8 +73,13 @@ app.get("/auth/login", async (c) => {
 // worker can't send our SameSite=Lax cookie). Registered before the session
 // gate so these routes short-circuit past it, like /auth/login does. ──────
 app.use("/ext/*", async (c, next) => {
+  // Token rides in x-dh-token: CloudFront's OAC signs origin requests and
+  // overwrites Authorization with its own SigV4 signature, so a Bearer
+  // header never survives the hop. Authorization kept for local/direct use.
   const header = c.req.header("authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  const token =
+    c.req.header("x-dh-token") ??
+    (header.startsWith("Bearer ") ? header.slice(7) : null);
   const userId = token
     ? await getUserIdByExtTokenHash(hashInviteToken(token))
     : null;

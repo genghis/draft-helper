@@ -42,8 +42,10 @@ export async function extApi<T>(
   path: string,
   options: { method?: string; body?: unknown } = {}
 ): Promise<T> {
+  // Custom header rather than Authorization: CloudFront's OAC overwrites
+  // Authorization with its own SigV4 signature before reaching the Lambda.
   const headers: Record<string, string> = {
-    authorization: `Bearer ${config.token}`,
+    "x-dh-token": config.token,
   };
   let body: string | undefined;
   if (options.body !== undefined) {
