@@ -1,8 +1,69 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import type { Player, Position } from "@drafthelper/shared";
+import { canonicalTeamAbbrev, espnProTeamAbbrev, normalizeName } from "@drafthelper/shared";
 
 const SLEEPER_URL = "https://api.sleeper.app/v1/players/nfl";
 const FANTASY_POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);
+
+// ESPN's player universe — authoritative source of ESPN player ids. Sleeper's
+// espn_id crossref is missing for most recent players and all defenses (~21%
+// coverage), which silently drops most live-draft picks, so we build the id
+// map by matching ESPN's own list to our players by name+position instead.
+const ESPN_PLAYERS_URL =
+  "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/players?view=players_wl";
+const ESPN_POSITION: Record<number, Position> = {
+  1: "QB",
+  2: "RB",
+  3: "WR",
+  4: "TE",
+  5: "K",
+  16: "DST",
+};
+
+interface EspnPlayer {
+  id: number;
+  fullName?: string;
+  defaultPositionId?: number;
+  proTeamId?: number;
+}
+
+/** Key for name+position lookup, so two players with the same name at
+ *  different positions don't collide. */
+function nameKey(name: string, position: Position): string {
+  return `${position}|${normalizeName(name)}`;
+}
+
+/**
+ * Fetches ESPN's player universe and returns lookups for attaching ESPN ids:
+ * offensive players by name+position, defenses by team abbreviation.
+ */
+async function loadEspnIdMaps(): Promise<{
+  byName: Map<string, number>;
+  dstByTeam: Map<string, number>;
+}> {
+  const res = await fetch(ESPN_PLAYERS_URL, {
+    headers: { "x-fantasy-filter": JSON.stringify({ players: { limit: 12000 } }) },
+  });
+  if (!res.ok) throw new Error(`ESPN players fetch failed: ${res.status}`);
+  const list = (await res.json()) as EspnPlayer[];
+
+  const byName = new Map<string, number>();
+  const dstByTeam = new Map<string, number>();
+  for (const p of list) {
+    const position = ESPN_POSITION[p.defaultPositionId ?? -1];
+    if (!position) continue;
+    if (position === "DST") {
+      const abbrev = espnProTeamAbbrev(p.proTeamId ?? -1);
+      if (abbrev) dstByTeam.set(abbrev, p.id);
+    } else if (p.fullName) {
+      // First writer wins: the list is roughly ownership/relevance-ordered,
+      // so the active starter beats a same-named practice-squad player.
+      const key = nameKey(p.fullName, position);
+      if (!byName.has(key)) byName.set(key, p.id);
+    }
+  }
+  return { byName, dstByTeam };
+}
 
 interface SleeperPlayer {
   player_id: string;
@@ -27,11 +88,12 @@ export async function handler(): Promise<{ count: number }> {
   const bucket = process.env.SITE_BUCKET;
   if (!bucket) throw new Error("SITE_BUCKET not set");
 
-  const res = await fetch(SLEEPER_URL);
+  const [res, espnMaps] = await Promise.all([fetch(SLEEPER_URL), loadEspnIdMaps()]);
   if (!res.ok) throw new Error(`Sleeper fetch failed: ${res.status}`);
   const raw = (await res.json()) as Record<string, SleeperPlayer>;
 
   const players: Player[] = [];
+  let espnMatched = 0;
   for (const p of Object.values(raw)) {
     if (!p.position || !FANTASY_POSITIONS.has(p.position)) continue;
     // Team defenses (position DEF, id = team abbr) have no `active` flag;
@@ -41,14 +103,25 @@ export async function handler(): Promise<{ count: number }> {
     const name =
       p.full_name ?? [p.first_name, p.last_name].filter(Boolean).join(" ");
     if (!name) continue;
-    players.push({
-      id: p.player_id,
-      name,
-      position: (isTeamDefense ? "DST" : p.position) as Position,
-      team: p.team ?? (isTeamDefense ? p.player_id : null),
-      espnId: p.espn_id ?? null,
-    });
+    const position = (isTeamDefense ? "DST" : p.position) as Position;
+    const team = p.team ?? (isTeamDefense ? p.player_id : null);
+    // ESPN id from ESPN's own list (by team for DST, by name+position
+    // otherwise); fall back to Sleeper's sparse crossref.
+    const fromEspn = isTeamDefense
+      ? team
+        ? espnMaps.dstByTeam.get(canonicalTeamAbbrev(team))
+        : undefined
+      : espnMaps.byName.get(nameKey(name, position));
+    const espnId = fromEspn ?? p.espn_id ?? null;
+    if (espnId != null) espnMatched++;
+    players.push({ id: p.player_id, name, position, team, espnId });
   }
+
+  console.log(
+    `players: ${players.length}, espnId attached: ${espnMatched} (${Math.round(
+      (100 * espnMatched) / players.length
+    )}%)`
+  );
 
   if (players.length < 500) {
     // A suspiciously small result means Sleeper changed shape; keep the old file.

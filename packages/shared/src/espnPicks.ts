@@ -42,6 +42,12 @@ const ESPN_PRO_TEAMS: Record<number, string> = {
   34: "HOU",
 };
 
+/** ESPN proTeamId -> canonical NFL team abbreviation, or null if unknown. */
+export function espnProTeamAbbrev(proTeamId: number): string | null {
+  const abbrev = ESPN_PRO_TEAMS[proTeamId];
+  return abbrev ? canonicalTeamAbbrev(abbrev) : null;
+}
+
 const ABBREV_ALIASES: Record<string, string> = {
   WSH: "WAS",
   JAC: "JAX",
