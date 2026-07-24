@@ -9,3 +9,4 @@ coverage/
 
 # Chrome Web Store upload artifact
 packages/extension/*.zip
+packages/extension/store-assets/
