@@ -1,0 +1,61 @@
+.admin-panel {
+  margin-top: 2rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  padding-top: 1rem;
+}
+
+.admin-user-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-user-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.admin-add-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.admin-fresh-invite {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.admin-fresh-invite code {
+  word-break: break-all;
+  user-select: all;
+}
+
+.admin-error {
+  color: #c0392b;
+}

@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { SessionUser } from "@drafthelper/shared";
-import { getUser, getUserIdByInviteHash } from "./db/users.js";
+import {
+  createUser,
+  getUser,
+  getUserIdByInviteHash,
+  listUsers,
+  rotateInvite,
+} from "./db/users.js";
 import {
   SESSION_COOKIE,
   hashInviteToken,
@@ -32,8 +38,31 @@ app.use("*", async (c, next) => {
   const userId = cookie ? await verifySession(cookie) : null;
   const user = userId ? await getUser(userId) : null;
   if (!user) return c.json({ error: "unauthorized" }, 401);
-  c.set("user", { id: user.id, name: user.name });
+  c.set("user", { id: user.id, name: user.name, admin: user.admin });
   await next();
 });
 
 app.get("/me", (c) => c.json(c.get("user")));
+
+app.use("/admin/*", async (c, next) => {
+  if (!c.get("user").admin) return c.json({ error: "forbidden" }, 403);
+  await next();
+});
+
+app.get("/admin/users", async (c) => c.json(await listUsers()));
+
+app.post("/admin/users", async (c) => {
+  const body = await c.req.json<{ name?: unknown }>().catch(() => null);
+  const name = typeof body?.name === "string" ? body.name.trim() : "";
+  if (!name || name.length > 50) {
+    return c.json({ error: "name must be 1-50 characters" }, 400);
+  }
+  const { id, token } = await createUser(name);
+  return c.json({ id, name, token }, 201);
+});
+
+app.post("/admin/users/:id/invite", async (c) => {
+  const token = await rotateInvite(c.req.param("id"));
+  if (!token) return c.json({ error: "no such user" }, 404);
+  return c.json({ token });
+});

@@ -75,4 +75,14 @@ export interface DraftSession {
 export interface SessionUser {
   id: string;
   name: string;
+  admin?: boolean;
+}
+
+/** Admin-facing user row; never carries invite tokens or ESPN credentials. */
+export interface AdminUserRow {
+  id: string;
+  name: string;
+  admin: boolean;
+  createdAt: string | null;
+  hasEspnAuth: boolean;
 }

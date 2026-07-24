@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { SessionUser } from "@drafthelper/shared";
 import { api, ApiError } from "./api/client";
+import { AdminPanel } from "./views/AdminPanel";
 import "./App.css";
 
 type AuthState = { status: "loading" } | { status: "out" } | { status: "in"; user: SessionUser };
@@ -24,7 +25,12 @@ export function App() {
       {auth.status === "out" && (
         <p className="muted">Not signed in — use your invite link to get in.</p>
       )}
-      {auth.status === "in" && <p>Welcome, {auth.user.name}.</p>}
+      {auth.status === "in" && (
+        <>
+          <p>Welcome, {auth.user.name}.</p>
+          {auth.user.admin && <AdminPanel />}
+        </>
+      )}
     </main>
   );
 }
