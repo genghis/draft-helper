@@ -75,6 +75,17 @@ export interface Source {
   entries: RankedPlayer[];
 }
 
+/** Per-player consensus agreement, captured when a consensus sorting is seeded. */
+export interface PlayerAgreement {
+  /** How many of the seed sources ranked this player. */
+  coverage: number;
+  /** Population stddev of the player's ranks across sources (0 = unanimous). */
+  spread: number;
+}
+
+/** playerId -> agreement; present only on consensus-seeded boards. */
+export type BoardAgreement = Record<string, PlayerAgreement>;
+
 export interface BoardLayout {
   /** playerId -> placement; one atomic document. */
   placements: Record<string, Placement>;

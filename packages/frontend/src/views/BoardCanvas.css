@@ -94,3 +94,8 @@
   border-color: #27ae60;
   background: color-mix(in srgb, #2ecc71 18%, canvas);
 }
+
+.canvas-chip-split {
+  border-color: #b9770e;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #b9770e 55%, transparent);
+}

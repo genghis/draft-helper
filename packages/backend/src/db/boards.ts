@@ -6,6 +6,7 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import type {
+  BoardAgreement,
   BoardLayout,
   BoardMeta,
   BoardPosition,
@@ -24,6 +25,8 @@ export interface NewBoard {
   placements: Record<string, Placement>;
   sourceIds?: string[];
   seededBy?: SeedTool;
+  /** Per-player consensus stats; only set for consensus-seeded boards. */
+  agreement?: BoardAgreement;
 }
 
 function toMeta(id: string, item: Record<string, unknown>): BoardMeta {
@@ -44,42 +47,49 @@ function toMeta(id: string, item: Record<string, unknown>): BoardMeta {
 export async function createBoard(ownerId: string, input: NewBoard): Promise<BoardMeta> {
   const id = randomUUID();
   const now = new Date().toISOString();
-  await ddb.send(
-    new TransactWriteCommand({
-      TransactItems: [
-        {
-          Put: {
-            TableName: TABLE_NAME,
-            Item: {
-              pk: `BOARD#${id}`,
-              sk: "META",
-              ownerId,
-              name: input.name,
-              position: input.position,
-              scoring: input.scoring,
-              bands: input.bands,
-              createdAt: now,
-              updatedAt: now,
-              // Omitted when undefined (removeUndefinedValues is on).
-              sourceIds: input.sourceIds,
-              seededBy: input.seededBy,
-            },
-          },
+  const items: NonNullable<
+    ConstructorParameters<typeof TransactWriteCommand>[0]["TransactItems"]
+  > = [
+    {
+      Put: {
+        TableName: TABLE_NAME,
+        Item: {
+          pk: `BOARD#${id}`,
+          sk: "META",
+          ownerId,
+          name: input.name,
+          position: input.position,
+          scoring: input.scoring,
+          bands: input.bands,
+          createdAt: now,
+          updatedAt: now,
+          // Omitted when undefined (removeUndefinedValues is on).
+          sourceIds: input.sourceIds,
+          seededBy: input.seededBy,
         },
-        {
-          Put: {
-            TableName: TABLE_NAME,
-            Item: {
-              pk: `BOARD#${id}`,
-              sk: "LAYOUT",
-              placements: input.placements,
-              version: 1,
-            },
-          },
+      },
+    },
+    {
+      Put: {
+        TableName: TABLE_NAME,
+        Item: {
+          pk: `BOARD#${id}`,
+          sk: "LAYOUT",
+          placements: input.placements,
+          version: 1,
         },
-      ],
-    })
-  );
+      },
+    },
+  ];
+  if (input.agreement) {
+    items.push({
+      Put: {
+        TableName: TABLE_NAME,
+        Item: { pk: `BOARD#${id}`, sk: "AGREEMENT", stats: input.agreement },
+      },
+    });
+  }
+  await ddb.send(new TransactWriteCommand({ TransactItems: items }));
   return toMeta(id, {
     ownerId,
     name: input.name,
@@ -109,13 +119,16 @@ export async function listBoards(ownerId: string): Promise<BoardMeta[]> {
 
 export async function getBoard(
   boardId: string
-): Promise<{ meta: BoardMeta; layout: BoardLayout } | null> {
-  const [metaRes, layoutRes] = await Promise.all([
+): Promise<{ meta: BoardMeta; layout: BoardLayout; agreement?: BoardAgreement } | null> {
+  const [metaRes, layoutRes, agreementRes] = await Promise.all([
     ddb.send(
       new GetCommand({ TableName: TABLE_NAME, Key: { pk: `BOARD#${boardId}`, sk: "META" } })
     ),
     ddb.send(
       new GetCommand({ TableName: TABLE_NAME, Key: { pk: `BOARD#${boardId}`, sk: "LAYOUT" } })
+    ),
+    ddb.send(
+      new GetCommand({ TableName: TABLE_NAME, Key: { pk: `BOARD#${boardId}`, sk: "AGREEMENT" } })
     ),
   ]);
   if (!metaRes.Item || !layoutRes.Item) return null;
@@ -125,6 +138,7 @@ export async function getBoard(
       placements: layoutRes.Item.placements as Record<string, Placement>,
       version: layoutRes.Item.version as number,
     },
+    agreement: agreementRes.Item?.stats as BoardAgreement | undefined,
   };
 }
 
@@ -197,6 +211,7 @@ export async function deleteBoard(boardId: string): Promise<void> {
       TransactItems: [
         { Delete: { TableName: TABLE_NAME, Key: { pk: `BOARD#${boardId}`, sk: "META" } } },
         { Delete: { TableName: TABLE_NAME, Key: { pk: `BOARD#${boardId}`, sk: "LAYOUT" } } },
+        { Delete: { TableName: TABLE_NAME, Key: { pk: `BOARD#${boardId}`, sk: "AGREEMENT" } } },
       ],
     })
   );

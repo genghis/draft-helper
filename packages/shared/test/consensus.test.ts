@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { consensusRanking, consensusToRanked } from "../src/consensus.js";
+import {
+  agreementFromRows,
+  consensusRanking,
+  consensusToRanked,
+  highDisagreementIds,
+} from "../src/consensus.js";
 import type { RankedPlayer } from "../src/tiers.js";
 
 const src = (...rows: [string, number, number][]): RankedPlayer[] =>
@@ -58,5 +63,24 @@ describe("consensusToRanked", () => {
       { playerId: "p1", rank: 1, tier: 1 },
       { playerId: "p2", rank: 2, tier: 2 },
     ]);
+  });
+});
+
+describe("agreement helpers", () => {
+  it("builds the agreement map from rows", () => {
+    const rows = consensusRanking([src(["p1", 1, 1]), src(["p1", 5, 1])]);
+    expect(agreementFromRows(rows)).toEqual({ p1: { coverage: 2, spread: 2 } });
+  });
+
+  it("flags the highest-spread players and stays empty without enough signal", () => {
+    // Five players, increasing disagreement; the top of the spread distribution
+    // is flagged, the tightly-agreed ones are not.
+    const a = src(["p1", 1, 1], ["p2", 2, 1], ["p3", 3, 1], ["p4", 4, 1], ["p5", 5, 1]);
+    const b = src(["p1", 2, 1], ["p2", 4, 1], ["p3", 6, 2], ["p4", 10, 2], ["p5", 25, 4]);
+    const flagged = highDisagreementIds(agreementFromRows(consensusRanking([a, b])));
+    expect(flagged.has("p5")).toBe(true);
+    expect(flagged.has("p1")).toBe(false);
+    // Too few players / unanimous → nothing flagged.
+    expect(highDisagreementIds({ x: { coverage: 2, spread: 0 } }).size).toBe(0);
   });
 });

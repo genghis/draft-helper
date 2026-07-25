@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
 import type { BoardMeta, SeedTool, Source, SourceMeta } from "@drafthelper/shared";
-import { consensusRanking, consensusToRanked, layoutFromRanked } from "@drafthelper/shared";
+import {
+  agreementFromRows,
+  consensusRanking,
+  consensusToRanked,
+  layoutFromRanked,
+} from "@drafthelper/shared";
 import { api } from "../api/client";
 import "./NewSortingModal.css";
 
@@ -45,10 +50,8 @@ export function NewSortingModal({ sources, onCreated, onClose }: Props) {
       const full = await Promise.all(
         chosen.map((s) => api<Source>(`/sources/${s.id}`))
       );
-      const ranked =
-        tool === "single"
-          ? full[0]!.entries
-          : consensusToRanked(consensusRanking(full.map((s) => s.entries)));
+      const rows = tool === "consensus" ? consensusRanking(full.map((s) => s.entries)) : null;
+      const ranked = rows ? consensusToRanked(rows) : full[0]!.entries;
       const { placements, bands } = layoutFromRanked(ranked);
       const first = chosen[0]!;
       const board = await api<BoardMeta>("/boards", {
@@ -61,6 +64,7 @@ export function NewSortingModal({ sources, onCreated, onClose }: Props) {
           placements,
           sourceIds: chosen.map((s) => s.id),
           seededBy: tool,
+          agreement: rows ? agreementFromRows(rows) : undefined,
         },
       });
       onCreated(board);

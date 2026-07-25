@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type {
+  BoardAgreement,
   BoardPosition,
   Placement,
   RankedPlayer,
@@ -55,6 +56,20 @@ const POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DST", "FLX", "OVERALL"]
 const SCORINGS = new Set(["STD", "HALF", "PPR"]);
 const SEED_TOOLS = new Set(["single", "consensus"]);
 const MAX_SOURCE_ENTRIES = 1000;
+
+/** Loose shape check for the optional per-player agreement map on a board. */
+function isValidAgreement(v: unknown): boolean {
+  if (typeof v !== "object" || v === null) return false;
+  const entries = Object.values(v as Record<string, unknown>);
+  if (entries.length > MAX_SOURCE_ENTRIES) return false;
+  return entries.every(
+    (a) =>
+      typeof a === "object" &&
+      a !== null &&
+      typeof (a as { coverage?: unknown }).coverage === "number" &&
+      typeof (a as { spread?: unknown }).spread === "number"
+  );
+}
 import {
   SESSION_COOKIE,
   hashInviteToken,
@@ -233,6 +248,7 @@ app.post("/boards", async (c) => {
       placements?: unknown;
       sourceIds?: unknown;
       seededBy?: unknown;
+      agreement?: unknown;
     }>()
     .catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
@@ -260,6 +276,9 @@ app.post("/boards", async (c) => {
     typeof body?.seededBy === "string" && SEED_TOOLS.has(body.seededBy)
       ? (body.seededBy as SeedTool)
       : undefined;
+  const agreement = isValidAgreement(body?.agreement)
+    ? (body?.agreement as BoardAgreement)
+    : undefined;
   const meta = await createBoard(c.get("user").id, {
     name,
     position: position as BoardPosition,
@@ -268,6 +287,7 @@ app.post("/boards", async (c) => {
     placements: placements as Record<string, Placement>,
     sourceIds,
     seededBy,
+    agreement,
   });
   return c.json(meta, 201);
 });

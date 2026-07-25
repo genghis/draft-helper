@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import type { BoardLayout, BoardMeta, Player, SourceMeta } from "@drafthelper/shared";
+import type {
+  BoardAgreement,
+  BoardLayout,
+  BoardMeta,
+  Player,
+  SourceMeta,
+} from "@drafthelper/shared";
 import { api } from "../api/client";
 import { useDraft } from "../state/draft";
 import { BoardCanvas } from "./BoardCanvas";
@@ -23,7 +29,11 @@ export function BoardsView({
   onBoardDeleted,
 }: Props) {
   const [activeId, setActiveId] = useState<string | null>(boards[0]?.id ?? null);
-  const [board, setBoard] = useState<{ meta: BoardMeta; layout: BoardLayout } | null>(null);
+  const [board, setBoard] = useState<{
+    meta: BoardMeta;
+    layout: BoardLayout;
+    agreement?: BoardAgreement;
+  } | null>(null);
   const [mode, setMode] = useState<"list" | "canvas">("list");
   const [conflictNotice, setConflictNotice] = useState(false);
   const [showNew, setShowNew] = useState(false);
@@ -41,7 +51,9 @@ export function BoardsView({
       setBoard(null);
       return;
     }
-    api<{ meta: BoardMeta; layout: BoardLayout }>(`/boards/${activeId}`).then(setBoard);
+    api<{ meta: BoardMeta; layout: BoardLayout; agreement?: BoardAgreement }>(
+      `/boards/${activeId}`
+    ).then(setBoard);
   }, [activeId]);
 
   useEffect(loadBoard, [loadBoard]);
@@ -151,6 +163,7 @@ export function BoardsView({
             <TierListView
               meta={board.meta}
               layout={board.layout}
+              agreement={board.agreement}
               playersById={playersById}
               picks={draft.picks}
               onMark={draft.mark}
@@ -161,6 +174,7 @@ export function BoardsView({
               key={board.meta.id}
               meta={board.meta}
               layout={board.layout}
+              agreement={board.agreement}
               playersById={playersById}
               picks={draft.picks}
               onMetaChanged={(meta) => setBoard((prev) => (prev ? { ...prev, meta } : prev))}

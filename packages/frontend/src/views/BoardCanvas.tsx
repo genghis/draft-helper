@@ -1,6 +1,18 @@
 import { useMemo, useRef, useState } from "react";
-import type { BoardLayout, BoardMeta, Pick, Placement, Player } from "@drafthelper/shared";
-import { moveBandBoundary, RANK_SPACING, spreadPlacements } from "@drafthelper/shared";
+import type {
+  BoardAgreement,
+  BoardLayout,
+  BoardMeta,
+  Pick,
+  Placement,
+  Player,
+} from "@drafthelper/shared";
+import {
+  highDisagreementIds,
+  moveBandBoundary,
+  RANK_SPACING,
+  spreadPlacements,
+} from "@drafthelper/shared";
 import { api } from "../api/client";
 import { useLayoutSaver } from "../state/layoutSaver";
 import "./BoardCanvas.css";
@@ -8,6 +20,7 @@ import "./BoardCanvas.css";
 interface Props {
   meta: BoardMeta;
   layout: BoardLayout;
+  agreement?: BoardAgreement;
   playersById: Map<string, Player>;
   picks: Map<string, Pick>;
   onMetaChanged: (meta: BoardMeta) => void;
@@ -28,6 +41,7 @@ const V_SCALE = 3.2;
 export function BoardCanvas({
   meta,
   layout,
+  agreement,
   playersById,
   picks,
   onMetaChanged,
@@ -35,6 +49,10 @@ export function BoardCanvas({
 }: Props) {
   const [placements, setPlacements] = useState(layout.placements);
   const [bands, setBands] = useState(meta.bands);
+  const splitIds = useMemo(
+    () => (agreement ? highDisagreementIds(agreement) : new Set<string>()),
+    [agreement]
+  );
   const { save, saving } = useLayoutSaver(meta.id, layout.version, onConflict);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const drag = useRef<
@@ -150,6 +168,7 @@ export function BoardCanvas({
           const cls = [
             "canvas-chip",
             pick && (pick.mine ? "canvas-chip-mine" : "canvas-chip-gone"),
+            !pick && splitIds.has(id) && "canvas-chip-split",
           ]
             .filter(Boolean)
             .join(" ");

@@ -1,22 +1,40 @@
-import type { BoardLayout, BoardMeta, Pick, Player } from "@drafthelper/shared";
-import { projectBands } from "@drafthelper/shared";
+import type { BoardAgreement, BoardLayout, BoardMeta, Pick, Player } from "@drafthelper/shared";
+import { highDisagreementIds, projectBands } from "@drafthelper/shared";
 import "./TierListView.css";
 
 interface Props {
   meta: BoardMeta;
   layout: BoardLayout;
+  agreement?: BoardAgreement;
   playersById: Map<string, Player>;
   picks: Map<string, Pick>;
   onMark: (playerId: string, mine: boolean) => void;
   onUnmark: (playerId: string) => void;
 }
 
-export function TierListView({ meta, layout, playersById, picks, onMark, onUnmark }: Props) {
+export function TierListView({
+  meta,
+  layout,
+  agreement,
+  playersById,
+  picks,
+  onMark,
+  onUnmark,
+}: Props) {
   const groups = projectBands(layout.placements, meta.bands);
+  const sourceCount = meta.sourceIds?.length ?? 0;
+  const splitIds = agreement ? highDisagreementIds(agreement) : new Set<string>();
   let overallRank = 0;
 
   return (
     <div className="tier-list">
+      {agreement && (
+        <p className="tier-legend muted">
+          <span className="agree-badge agree-split">±</span> experts split (boom/bust) ·{" "}
+          <span className="agree-badge agree-thin">n/{sourceCount || "N"}</span> ranked by only
+          some sources
+        </p>
+      )}
       {groups.map((group) => {
         const remaining = group.playerIds.filter((id) => !picks.has(id)).length;
         return (
@@ -61,6 +79,13 @@ export function TierListView({ meta, layout, playersById, picks, onMark, onUnmar
                         Mine
                       </button>
                     )}
+                    {!gone && agreement && (
+                      <AgreementBadge
+                        stat={agreement[id]}
+                        sourceCount={sourceCount}
+                        split={splitIds.has(id)}
+                      />
+                    )}
                     {gone && pick.mine && <span className="tier-mine-tag">my pick</span>}
                     {gone && pick.source === "espn" && (
                       <span className="tier-espn-tag">espn</span>
@@ -73,5 +98,40 @@ export function TierListView({ meta, layout, playersById, picks, onMark, onUnmar
         );
       })}
     </div>
+  );
+}
+
+/** Boom/bust (high rank spread) and thin-coverage markers for consensus boards. */
+function AgreementBadge({
+  stat,
+  sourceCount,
+  split,
+}: {
+  stat: { coverage: number; spread: number } | undefined;
+  sourceCount: number;
+  split: boolean;
+}) {
+  if (!stat) return null;
+  const thin = sourceCount > 1 && stat.coverage < sourceCount;
+  if (!split && !thin) return null;
+  return (
+    <span className="agree-badges">
+      {split && (
+        <span
+          className="agree-badge agree-split"
+          title={`Experts disagree — ranks varied by ~${Math.round(stat.spread)}`}
+        >
+          ±{Math.round(stat.spread)}
+        </span>
+      )}
+      {thin && (
+        <span
+          className="agree-badge agree-thin"
+          title={`Ranked by only ${stat.coverage} of ${sourceCount} sources`}
+        >
+          {stat.coverage}/{sourceCount}
+        </span>
+      )}
+    </span>
   );
 }

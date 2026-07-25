@@ -98,3 +98,33 @@
   color: #2980b9;
   padding: 0 0.5rem;
 }
+
+.tier-legend {
+  font-size: 0.8rem;
+  margin: 0 0 0.5rem;
+}
+
+.agree-badges {
+  display: inline-flex;
+  gap: 0.3rem;
+  margin: 0 0.5rem;
+}
+
+.agree-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.agree-split {
+  color: #b9770e;
+  border: 1px solid #b9770e;
+  background: color-mix(in srgb, #f1c40f 12%, transparent);
+}
+
+.agree-thin {
+  color: #8e7cc3;
+  border: 1px solid color-mix(in srgb, #8e7cc3 60%, transparent);
+}

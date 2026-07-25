@@ -1,3 +1,4 @@
+import type { BoardAgreement } from "./types.js";
 import type { RankedPlayer } from "./tiers.js";
 
 export interface ConsensusRow {
@@ -61,6 +62,35 @@ export function consensusRanking(sources: RankedPlayer[][]): ConsensusRow[] {
 /** Maps consensus rows to the RankedPlayer shape layoutFromRanked consumes. */
 export function consensusToRanked(rows: ConsensusRow[]): RankedPlayer[] {
   return rows.map((r) => ({ playerId: r.playerId, rank: r.rank, tier: r.tier }));
+}
+
+/** Builds the persisted agreement map (playerId -> coverage/spread) from rows. */
+export function agreementFromRows(rows: ConsensusRow[]): BoardAgreement {
+  return Object.fromEntries(
+    rows.map((r) => [r.playerId, { coverage: r.coverage, spread: r.spread }])
+  );
+}
+
+/**
+ * Ids the experts most disagree on: those whose rank spread is at or above the
+ * given quantile of the board's nonzero spreads. Returns empty when there's
+ * too little signal (few players, or everyone unanimous).
+ */
+export function highDisagreementIds(
+  agreement: BoardAgreement,
+  quantile = 0.75
+): Set<string> {
+  const spreads = Object.values(agreement)
+    .map((a) => a.spread)
+    .filter((s) => s > 0)
+    .sort((a, b) => a - b);
+  if (spreads.length < 4) return new Set();
+  const threshold = spreads[Math.floor(quantile * (spreads.length - 1))]!;
+  return new Set(
+    Object.entries(agreement)
+      .filter(([, a]) => a.spread > 0 && a.spread >= threshold)
+      .map(([id]) => id)
+  );
 }
 
 function mean(xs: number[]): number {
