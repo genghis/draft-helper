@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Draft Helper Sync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Mirrors your online fantasy football draft picks onto your Draft Helper board, live, as they happen.",
   "permissions": ["storage"],
   "host_permissions": ["https://draft.clanseafox.com/*"],
