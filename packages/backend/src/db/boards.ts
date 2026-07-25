@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
   GetCommand,
-  ScanCommand,
   TransactWriteCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
@@ -15,7 +14,7 @@ import type {
   SeedTool,
   TierBand,
 } from "@drafthelper/shared";
-import { ddb, TABLE_NAME } from "./client.js";
+import { ddb, scanAll, TABLE_NAME } from "./client.js";
 
 export interface NewBoard {
   name: string;
@@ -105,14 +104,12 @@ export async function createBoard(ownerId: string, input: NewBoard): Promise<Boa
 
 /** Scan is fine at league scale; the pk guard keeps source META items out. */
 export async function listBoards(ownerId: string): Promise<BoardMeta[]> {
-  const res = await ddb.send(
-    new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: "sk = :meta AND ownerId = :owner AND begins_with(pk, :prefix)",
-      ExpressionAttributeValues: { ":meta": "META", ":owner": ownerId, ":prefix": "BOARD#" },
-    })
-  );
-  return (res.Items ?? [])
+  const items = await scanAll({
+    TableName: TABLE_NAME,
+    FilterExpression: "sk = :meta AND ownerId = :owner AND begins_with(pk, :prefix)",
+    ExpressionAttributeValues: { ":meta": "META", ":owner": ownerId, ":prefix": "BOARD#" },
+  });
+  return items
     .map((item) => toMeta((item.pk as string).replace(/^BOARD#/, ""), item))
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }

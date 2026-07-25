@@ -84,3 +84,16 @@ describe("agreement helpers", () => {
     expect(highDisagreementIds({ x: { coverage: 2, spread: 0 } }).size).toBe(0);
   });
 });
+
+describe("consensus monotonic tiers", () => {
+  it("keeps tier non-decreasing down the rank order (no band interleave)", () => {
+    // p1 ranks best on average but its sources tier it worse (2,3 -> 2.5 -> 3);
+    // p2 ranks just behind but tiers cleaner (1,2 -> 1.5 -> 2). Naive rounding
+    // would give p1 tier 3, p2 tier 2 -> interleaved. Running-max prevents it.
+    const a = src(["p1", 1, 2], ["p2", 2, 1]);
+    const b = src(["p1", 1, 3], ["p2", 2, 2]);
+    const rows = consensusRanking([a, b]);
+    const tiers = rows.map((r) => r.tier);
+    for (let i = 1; i < tiers.length; i++) expect(tiers[i]!).toBeGreaterThanOrEqual(tiers[i - 1]!);
+  });
+});

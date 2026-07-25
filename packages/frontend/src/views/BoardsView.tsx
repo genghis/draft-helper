@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   BoardAgreement,
   BoardLayout,
@@ -49,14 +49,20 @@ export function BoardsView({
     }
   }, [boards, activeId]);
 
+  // Last-requested wins: a slower response for a previously-active board must
+  // not overwrite the board the user has since switched to.
+  const loadSeq = useRef(0);
   const loadBoard = useCallback(() => {
     if (!activeId) {
       setBoard(null);
       return;
     }
+    const seq = ++loadSeq.current;
     api<{ meta: BoardMeta; layout: BoardLayout; agreement?: BoardAgreement }>(
       `/boards/${activeId}`
-    ).then(setBoard);
+    ).then((b) => {
+      if (seq === loadSeq.current) setBoard(b);
+    });
   }, [activeId]);
 
   useEffect(loadBoard, [loadBoard]);
@@ -175,7 +181,9 @@ export function BoardsView({
             />
           ) : (
             <BoardCanvas
-              key={board.meta.id}
+              // Include the layout version so a conflict-triggered reload
+              // remounts with fresh placements instead of keeping stale local state.
+              key={`${board.meta.id}:${board.layout.version}`}
               meta={board.meta}
               layout={board.layout}
               agreement={board.agreement}

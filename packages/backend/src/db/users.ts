@@ -1,13 +1,12 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   GetCommand,
-  ScanCommand,
   TransactWriteCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import type { AdminUserRow, SessionUser } from "@drafthelper/shared";
 import { hashInviteToken } from "../lib/session.js";
-import { ddb, TABLE_NAME } from "./client.js";
+import { ddb, scanAll, TABLE_NAME } from "./client.js";
 
 export interface UserProfile extends SessionUser {
   espn?: {
@@ -46,14 +45,12 @@ export async function getUserIdByInviteHash(hash: string): Promise<string | null
 
 /** Fine as a Scan: the whole league is a dozen profiles. */
 export async function listUsers(): Promise<AdminUserRow[]> {
-  const res = await ddb.send(
-    new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: "sk = :profile",
-      ExpressionAttributeValues: { ":profile": "PROFILE" },
-    })
-  );
-  return (res.Items ?? [])
+  const items = await scanAll({
+    TableName: TABLE_NAME,
+    FilterExpression: "sk = :profile",
+    ExpressionAttributeValues: { ":profile": "PROFILE" },
+  });
+  return items
     .map((item) => ({
       id: (item.pk as string).replace(/^USER#/, ""),
       name: item.name as string,

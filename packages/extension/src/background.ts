@@ -57,6 +57,13 @@ async function push(): Promise<void> {
     );
   } catch (err) {
     const message = err instanceof ExtApiError ? err.message : String(err);
+    // Auth/validation failures won't fix themselves — stop retrying and tell the
+    // user to reconnect, rather than looping forever (re-armed every heartbeat).
+    const status = err instanceof ExtApiError ? err.status : 0;
+    if (status === 400 || status === 401 || status === 403) {
+      void setBadge("!", "#c0392b", `Reconnect token — ${message}`);
+      return;
+    }
     void setBadge("!", "#c0392b", `Push failed: ${message}`);
     retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS);
     schedulePush(retryDelay);

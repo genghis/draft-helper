@@ -33,10 +33,11 @@ export function App() {
   }, []);
 
   const signedIn = auth.status === "in";
+  const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
     if (signedIn) {
-      api<BoardMeta[]>("/boards").then(setBoards);
-      api<SourceMeta[]>("/sources").then(setSources);
+      api<BoardMeta[]>("/boards").then(setBoards).catch((e) => setLoadError(String(e)));
+      api<SourceMeta[]>("/sources").then(setSources).catch((e) => setLoadError(String(e)));
     }
   }, [signedIn]);
 
@@ -80,6 +81,7 @@ export function App() {
       {auth.status === "in" && (
         <>
           {playersError && <p className="app-error">Player list failed to load: {playersError}</p>}
+          {loadError && <p className="app-error">Failed to load your data: {loadError}</p>}
           {view === "import" && players ? (
             <ImportView
               players={players}

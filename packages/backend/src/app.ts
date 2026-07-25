@@ -57,6 +57,34 @@ const SCORINGS = new Set(["STD", "HALF", "PPR"]);
 const SEED_TOOLS = new Set(["single", "consensus"]);
 const MAX_SOURCE_ENTRIES = 1000;
 
+const MAX_PLACEMENTS = 1000;
+
+/** Every band is {y0<y1, numeric, string label}. */
+function isValidBands(v: unknown): v is TierBand[] {
+  return (
+    Array.isArray(v) &&
+    v.every(
+      (b) =>
+        typeof b?.y0 === "number" &&
+        typeof b?.y1 === "number" &&
+        b.y0 < b.y1 &&
+        typeof b?.label === "string"
+    )
+  );
+}
+
+/** A placements map: object, capped, every value a numeric {x,y}. */
+function isValidPlacements(v: unknown): v is Record<string, Placement> {
+  if (typeof v !== "object" || v === null) return false;
+  const vals = Object.values(v as Record<string, unknown>);
+  if (vals.length > MAX_PLACEMENTS) return false;
+  return vals.every(
+    (p) =>
+      typeof (p as { x?: unknown }).x === "number" &&
+      typeof (p as { y?: unknown }).y === "number"
+  );
+}
+
 /** Loose shape check for the optional per-player agreement map on a board. */
 function isValidAgreement(v: unknown): boolean {
   if (typeof v !== "object" || v === null) return false;
@@ -261,15 +289,15 @@ app.post("/boards", async (c) => {
     name.length > 80 ||
     !POSITIONS.has(position) ||
     !SCORINGS.has(scoring) ||
-    !Array.isArray(bands) ||
-    typeof placements !== "object" ||
-    placements === null ||
-    Object.keys(placements).length > 1000
+    !isValidBands(bands) ||
+    !isValidPlacements(placements)
   ) {
     return c.json({ error: "invalid board" }, 400);
   }
   const sourceIds =
-    Array.isArray(body?.sourceIds) && body.sourceIds.every((s) => typeof s === "string")
+    Array.isArray(body?.sourceIds) &&
+    body.sourceIds.length <= MAX_SOURCE_ENTRIES &&
+    body.sourceIds.every((s) => typeof s === "string")
       ? (body.sourceIds as string[])
       : undefined;
   const seededBy =
@@ -366,19 +394,10 @@ app.put("/boards/:id", async (c) => {
     changes.name = body.name.trim();
   }
   if (body?.bands !== undefined) {
-    if (
-      !Array.isArray(body.bands) ||
-      body.bands.some(
-        (b) =>
-          typeof b?.y0 !== "number" ||
-          typeof b?.y1 !== "number" ||
-          b.y0 >= b.y1 ||
-          typeof b?.label !== "string"
-      )
-    ) {
+    if (!isValidBands(body.bands)) {
       return c.json({ error: "invalid bands" }, 400);
     }
-    changes.bands = body.bands as TierBand[];
+    changes.bands = body.bands;
   }
   if (changes.name === undefined && changes.bands === undefined) {
     return c.json({ error: "nothing to update" }, 400);
@@ -396,11 +415,7 @@ app.put("/boards/:id/layout", async (c) => {
   const body = await c.req
     .json<{ placements?: unknown; version?: unknown }>()
     .catch(() => null);
-  if (
-    typeof body?.placements !== "object" ||
-    body.placements === null ||
-    typeof body.version !== "number"
-  ) {
+  if (!isValidPlacements(body?.placements) || typeof body?.version !== "number") {
     return c.json({ error: "placements and version required" }, 400);
   }
   const version = await putLayout(

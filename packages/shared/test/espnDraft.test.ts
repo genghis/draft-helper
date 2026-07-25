@@ -45,3 +45,11 @@ describe("parseDraftFrame", () => {
     expect(picks.every((p) => p.type === "pick" && Number.isFinite(p.espnPlayerId))).toBe(true);
   });
 });
+
+describe("parseDraftFrame slot hardening", () => {
+  it("defaults a non-numeric lineupSlotId to 0", () => {
+    expect(parseDraftFrame("SELECTED 2 4685278 xx")).toEqual([
+      { type: "pick", teamId: 2, espnPlayerId: 4685278, lineupSlotId: 0 },
+    ]);
+  });
+});

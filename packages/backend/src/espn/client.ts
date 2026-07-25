@@ -37,7 +37,13 @@ async function espnGet(
     },
   });
   if (!res.ok) return null;
-  return res.json();
+  // A 200 with a non-JSON body (ESPN interstitial/HTML) must degrade to null so
+  // callers return the intended 502, not an unhandled 500.
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 /** Proves the stored cookies work by fetching the league's name. */

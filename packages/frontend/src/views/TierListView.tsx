@@ -58,10 +58,10 @@ export function TierListView({
           some sources
         </p>
       )}
-      {groups.map((group) => {
+      {groups.map((group, gi) => {
         const remaining = group.playerIds.filter((id) => !picks.has(id)).length;
         return (
-          <section key={group.band.label} className="tier-band">
+          <section key={`${group.band.label}-${gi}`} className="tier-band">
             <header className="tier-band-header">
               <span>{group.band.label}</span>
               <span className={remaining <= 1 ? "tier-remaining tier-remaining-low" : "tier-remaining"}>

@@ -19,7 +19,8 @@ export function parseDraftFrame(raw: string): EspnDraftEvent[] {
       case "SELECTED": {
         const teamId = Number(parts[1]);
         const espnPlayerId = Number(parts[2]);
-        const lineupSlotId = Number(parts[3] ?? 0);
+        const rawSlot = Number(parts[3]);
+        const lineupSlotId = Number.isFinite(rawSlot) ? rawSlot : 0;
         if (Number.isFinite(teamId) && Number.isFinite(espnPlayerId)) {
           events.push({ type: "pick", teamId, espnPlayerId, lineupSlotId });
         }

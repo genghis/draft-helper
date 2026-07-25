@@ -53,19 +53,23 @@ function sendSnapshot(): void {
   clearTimeout(snapshotTimer);
   snapshotTimer = setTimeout(() => {
     try {
+      // sendMessage rejects (not throws) when the worker is gone; swallow it so
+      // it isn't an unhandled rejection. The next snapshot carries the same data.
       void chrome.runtime.sendMessage({
         kind: "snapshot",
         myTeamId,
         picks: Array.from(picks.values()),
-      });
+      })?.catch?.(() => {});
     } catch {
-      // Worker/extension reloading; the next snapshot will carry the same data.
+      // Extension context invalidated (reload) — nothing to do.
     }
   }, SNAPSHOT_DEBOUNCE_MS);
 }
 
 window.addEventListener("message", (ev: MessageEvent) => {
-  if (ev.source !== window) return;
+  // Only trust same-window, same-origin posts from our MAIN-world relay, so a
+  // co-running page script can't inject synthetic frames.
+  if (ev.source !== window || ev.origin !== window.location.origin) return;
   const data = ev.data as { type?: string; frame?: string } | null;
   if (data?.type !== RELAY_TYPE || typeof data.frame !== "string") return;
   let changed = false;

@@ -136,3 +136,14 @@ describe("spreadPlacements", () => {
     expect(out.c!.y).toBe(30);
   });
 });
+
+describe("moveBandBoundary no-room guard", () => {
+  it("leaves bands unchanged when there isn't room for both at minHeight", () => {
+    const bands = [
+      { y0: 0, y1: 10, label: "A" },
+      { y0: 10, y1: 15, label: "B" },
+    ];
+    // combined span 15 < 2*minHeight(10) -> unchanged, never inverts.
+    expect(moveBandBoundary(bands, 0, 3)).toBe(bands);
+  });
+});

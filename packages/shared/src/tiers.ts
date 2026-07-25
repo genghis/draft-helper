@@ -110,6 +110,9 @@ export function moveBandBoundary(
   const upper = bands[index];
   const lower = bands[index + 1];
   if (!upper || !lower) return bands;
+  // Not enough combined room to keep both bands >= minHeight: leave as-is
+  // rather than let the clamp invert and give a band negative height.
+  if (lower.y1 - upper.y0 < 2 * minHeight) return bands;
   const y = Math.min(Math.max(newY, upper.y0 + minHeight), lower.y1 - minHeight);
   return bands.map((band, i) =>
     i === index ? { ...band, y1: y } : i === index + 1 ? { ...band, y0: y } : band

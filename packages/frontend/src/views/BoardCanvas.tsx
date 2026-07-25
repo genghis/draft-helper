@@ -97,11 +97,11 @@ export function BoardCanvas({
     const point = toCanvas(e);
     if (!point) return;
     if (active.kind === "chip") {
-      setPlacements((prev) => {
-        const next = { ...prev, [active.id]: point };
-        save(next);
-        return next;
-      });
+      // Compute next outside the updater — updaters must be pure (StrictMode
+      // double-invokes them), and save() is a side effect.
+      const next = { ...placements, [active.id]: point };
+      setPlacements(next);
+      save(next);
     } else {
       setBands((prev) => moveBandBoundary(prev, active.index, point.y));
     }
@@ -119,11 +119,9 @@ export function BoardCanvas({
   }
 
   function autoArrange() {
-    setPlacements((prev) => {
-      const next = spreadPlacements(prev);
-      save(next);
-      return next;
-    });
+    const next = spreadPlacements(placements);
+    setPlacements(next);
+    save(next);
   }
 
   return (
@@ -134,6 +132,9 @@ export function BoardCanvas({
         </button>
         {saving && <span className="canvas-saving muted">saving…</span>}
       </div>
+      {/* Inline styles below are all per-element coordinates computed from live
+          layout/drag state (maxY, band y0/y1, chip x/y as %); they change every
+          render and every drag frame, so they cannot live in a stylesheet. */}
       <div
         ref={surfaceRef}
         className="canvas-surface"

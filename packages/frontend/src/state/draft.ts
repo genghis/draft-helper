@@ -16,11 +16,25 @@ export function useDraft({ poll = false }: Options = {}) {
   // Player ids this session marked, most recent last; undoLast pops it.
   const undoStack = useRef<string[]>([]);
   const [lastMarked, setLastMarked] = useState<string | null>(null);
+  // Count of optimistic writes in flight; the poll skips while any are pending
+  // so a refetch can't resurrect a just-deleted pick (or drop a just-marked one).
+  const inflight = useRef(0);
 
   const refresh = useCallback(async () => {
+    if (inflight.current > 0) return;
     const state = await api<DraftState>("/draft");
+    if (inflight.current > 0) return; // a write started while we were fetching
     setPicks(new Map(state.picks.map((p) => [p.playerId, p])));
     setSync(state.sync);
+  }, []);
+
+  const track = useCallback(async (op: Promise<unknown>) => {
+    inflight.current++;
+    try {
+      await op;
+    } finally {
+      inflight.current--;
+    }
   }, []);
 
   useEffect(() => {
@@ -53,8 +67,8 @@ export function useDraft({ poll = false }: Options = {}) {
     });
     undoStack.current.push(playerId);
     setLastMarked(playerId);
-    await api(`/draft/picks/${playerId}`, { method: "PUT", body: { mine } });
-  }, []);
+    await track(api(`/draft/picks/${playerId}`, { method: "PUT", body: { mine } }));
+  }, [track]);
 
   const unmark = useCallback(async (playerId: string) => {
     setPicks((prev) => {
@@ -64,8 +78,8 @@ export function useDraft({ poll = false }: Options = {}) {
     });
     undoStack.current = undoStack.current.filter((id) => id !== playerId);
     setLastMarked(undoStack.current[undoStack.current.length - 1] ?? null);
-    await api(`/draft/picks/${playerId}`, { method: "DELETE" });
-  }, []);
+    await track(api(`/draft/picks/${playerId}`, { method: "DELETE" }));
+  }, [track]);
 
   /** Undo the most recent mark made in this session. */
   const undoLast = useCallback(async () => {
@@ -77,8 +91,8 @@ export function useDraft({ poll = false }: Options = {}) {
     setPicks(new Map());
     undoStack.current = [];
     setLastMarked(null);
-    await api("/draft", { method: "DELETE" });
-  }, []);
+    await track(api("/draft", { method: "DELETE" }));
+  }, [track]);
 
   return { picks, sync, mark, unmark, undoLast, lastMarked, refresh, reset };
 }

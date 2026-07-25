@@ -50,10 +50,15 @@ export function consensusRanking(sources: RankedPlayer[][]): ConsensusRow[] {
       a.playerId.localeCompare(b.playerId)
   );
 
+  // Tiers must be non-decreasing down the consensus rank order, otherwise
+  // layoutFromRanked's contiguous-band math interleaves and collapses. A
+  // player can't sit in a better tier than someone the consensus ranks ahead
+  // of him, so carry the running-max rounded-average tier.
+  let tier = 0;
   return rows.map((r, i) => ({
     playerId: r.playerId,
     rank: i + 1,
-    tier: r.tier,
+    tier: (tier = Math.max(tier, r.tier)),
     coverage: r.coverage,
     spread: r.spread,
   }));

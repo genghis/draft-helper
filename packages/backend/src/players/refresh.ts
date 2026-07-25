@@ -95,7 +95,16 @@ export async function handler(): Promise<{ count: number }> {
   const bucket = process.env.SITE_BUCKET;
   if (!bucket) throw new Error("SITE_BUCKET not set");
 
-  const [res, espnMaps] = await Promise.all([fetch(SLEEPER_URL), loadEspnIdMaps()]);
+  // Sleeper is the critical source; the ESPN id map only enriches. Degrade to
+  // empty maps (Sleeper's own espn_id crossref still applies) rather than let
+  // an ESPN blip abort the whole players.json refresh.
+  const [res, espnMaps] = await Promise.all([
+    fetch(SLEEPER_URL),
+    loadEspnIdMaps().catch((e) => {
+      console.error("ESPN id map failed; using Sleeper crossref only:", e);
+      return { byName: new Map<string, number>(), dstByTeam: new Map<string, number>() };
+    }),
+  ]);
   if (!res.ok) throw new Error(`Sleeper fetch failed: ${res.status}`);
   const raw = (await res.json()) as Record<string, SleeperPlayer>;
 
@@ -161,10 +170,21 @@ const ADP_SEASON = Number(process.env.ADP_SEASON ?? new Date().getFullYear());
 /** Fetches ESPN + FFC ADP, maps both onto Sleeper ids, publishes adp.json. */
 async function publishAdp(bucket: string, players: Player[]): Promise<void> {
   const [espnByEspnId, ffcByFormat] = await Promise.all([
-    fetchEspnAdp(ADP_SEASON),
+    // A single source failing must not discard the others; degrade each to empty.
+    fetchEspnAdp(ADP_SEASON).catch((e) => {
+      console.error("ESPN ADP failed:", e);
+      return new Map<number, number>();
+    }),
     Promise.all(
       (Object.entries(FFC_FORMATS) as [ScoringFormat, string][]).map(
-        async ([scoring, slug]) => [scoring, await fetchFfcAdp(slug, ADP_SEASON)] as const
+        async ([scoring, slug]) =>
+          [
+            scoring,
+            await fetchFfcAdp(slug, ADP_SEASON).catch((e) => {
+              console.error(`FFC ADP failed (${slug}):`, e);
+              return [] as Awaited<ReturnType<typeof fetchFfcAdp>>;
+            }),
+          ] as const
       )
     ),
   ]);
@@ -177,11 +197,21 @@ async function publishAdp(bucket: string, players: Player[]): Promise<void> {
   }
 
   // FFC -> Sleeper by name, reusing the import matcher against the full pool.
+  // Carry each entry's ADP on the parsed row (via a side map keyed by the
+  // entry object) rather than round-tripping through the array index.
   const ffc = { STD: {}, HALF: {}, PPR: {} } as Record<ScoringFormat, Record<string, number>>;
   for (const [scoring, entries] of ffcByFormat) {
-    const parsed: ParsedEntry[] = entries.map((e, i) => ({ name: e.name, rank: i, tier: 1 }));
+    const adpByEntry = new Map<ParsedEntry, number>();
+    const parsed: ParsedEntry[] = entries.map((e) => {
+      const entry = { name: e.name, rank: 0, tier: 1 };
+      adpByEntry.set(entry, e.adp);
+      return entry;
+    });
     const { matched } = matchEntries(parsed, players, "OVERALL");
-    for (const m of matched) ffc[scoring][m.player.id] = entries[m.entry.rank]!.adp;
+    for (const m of matched) {
+      const adp = adpByEntry.get(m.entry);
+      if (adp != null) ffc[scoring][m.player.id] = adp;
+    }
   }
 
   const espnCount = Object.keys(espn).length;
