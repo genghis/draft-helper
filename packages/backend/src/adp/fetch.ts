@@ -19,7 +19,13 @@ const USER_AGENT =
 
 /** ESPN player id -> market ADP (overall pick number). */
 export async function fetchEspnAdp(season: number): Promise<Map<number, number>> {
-  const filter = { players: { limit: 700, filterStatsForTopScoringPeriodIds: undefined } };
+  // kona_player_info returns 400 without a sortDraftRanks clause in the filter.
+  const filter = {
+    players: {
+      limit: 700,
+      sortDraftRanks: { sortPriority: 1, sortAsc: true, value: "PPR" },
+    },
+  };
   const res = await fetch(
     `${ESPN_BASE}/seasons/${season}/segments/0/leaguedefaults/${ESPN_LEAGUE_DEFAULT}?view=kona_player_info`,
     { headers: { "x-fantasy-filter": JSON.stringify(filter), "user-agent": USER_AGENT } }
