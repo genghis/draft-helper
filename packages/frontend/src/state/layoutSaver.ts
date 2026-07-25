@@ -16,6 +16,7 @@ export function useLayoutSaver(
 ) {
   const version = useRef(initialVersion);
   const pending = useRef<Record<string, Placement> | null>(null);
+  const running = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [saving, setSaving] = useState(false);
 
@@ -23,25 +24,34 @@ export function useLayoutSaver(
     version.current = initialVersion;
   }, [boardId, initialVersion]);
 
+  // One PUT at a time. Overlapping writes would send a stale version and
+  // trigger a spurious 409 against our own edit (rapid drag → auto-arrange);
+  // draining a pending queue keeps version.current in sync between writes.
   const flush = useCallback(async () => {
-    const placements = pending.current;
-    if (!placements) return;
-    pending.current = null;
+    if (running.current) return;
+    running.current = true;
     setSaving(true);
     try {
-      const res = await api<{ version: number }>(`/boards/${boardId}/layout`, {
-        method: "PUT",
-        body: { placements, version: version.current },
-      });
-      version.current = res.version;
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
+      while (pending.current) {
+        const placements = pending.current;
         pending.current = null;
-        onConflict();
-      } else {
-        throw err;
+        try {
+          const res = await api<{ version: number }>(`/boards/${boardId}/layout`, {
+            method: "PUT",
+            body: { placements, version: version.current },
+          });
+          version.current = res.version;
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 409) {
+            pending.current = null;
+            onConflict();
+            break;
+          }
+          throw err;
+        }
       }
     } finally {
+      running.current = false;
       setSaving(false);
     }
   }, [boardId, onConflict]);
