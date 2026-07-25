@@ -2,10 +2,14 @@
   position: relative;
 }
 
+.canvas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
 .canvas-saving {
-  position: absolute;
-  top: -1.4rem;
-  right: 0;
   font-size: 0.8rem;
 }
 

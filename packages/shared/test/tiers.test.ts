@@ -6,6 +6,9 @@ import {
   moveBandBoundary,
   projectBands,
   RANK_SPACING,
+  SPREAD_LANE_GAP,
+  spreadOffset,
+  spreadPlacements,
 } from "../src/tiers.js";
 
 const ranked = [
@@ -100,5 +103,36 @@ describe("moveBandBoundary", () => {
   it("ignores out-of-range indexes", () => {
     const { bands } = layoutFromRanked(ranked);
     expect(moveBandBoundary(bands, 5, 10)).toBe(bands);
+  });
+});
+
+describe("spreadOffset", () => {
+  it("is a triangle wave that always moves one lane between neighbors", () => {
+    const seq = Array.from({ length: 8 }, (_, i) => spreadOffset(i) / SPREAD_LANE_GAP);
+    // lanes 0,1,2,3,2,1,0,1 recentered around (LANES-1)/2 = 1.5
+    expect(seq).toEqual([-1.5, -0.5, 0.5, 1.5, 0.5, -0.5, -1.5, -0.5]);
+    for (let i = 1; i < seq.length; i++) {
+      expect(Math.abs(seq[i]! - seq[i - 1]!)).toBe(1);
+    }
+  });
+});
+
+describe("layoutFromRanked spread", () => {
+  it("gives consecutive players different x while keeping y = value", () => {
+    const { placements } = layoutFromRanked(ranked);
+    const xs = ranked.map((r) => placements[r.playerId]!.x);
+    expect(new Set(xs).size).toBeGreaterThan(1);
+    expect(placements["a"]!.x).not.toBe(placements["b"]!.x);
+    expect(placements["a"]!.y).toBe(1 * RANK_SPACING);
+  });
+});
+
+describe("spreadPlacements", () => {
+  it("re-lanes x by value order and preserves y", () => {
+    const flat = { a: { x: 500, y: 10 }, b: { x: 500, y: 20 }, c: { x: 500, y: 30 } };
+    const out = spreadPlacements(flat);
+    expect(out.a!.x).not.toBe(out.b!.x);
+    expect(out.a!.y).toBe(10);
+    expect(out.c!.y).toBe(30);
   });
 });

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import type { BoardLayout, BoardMeta, Pick, Placement, Player } from "@drafthelper/shared";
-import { moveBandBoundary, RANK_SPACING } from "@drafthelper/shared";
+import { moveBandBoundary, RANK_SPACING, spreadPlacements } from "@drafthelper/shared";
 import { api } from "../api/client";
 import { useLayoutSaver } from "../state/layoutSaver";
 import "./BoardCanvas.css";
@@ -17,6 +17,8 @@ interface Props {
 /** Canvas x range; placements use these units directly. */
 const CANVAS_WIDTH = 1000;
 const CHIP_HALF_HEIGHT = RANK_SPACING * 1.4;
+/** Rendered pixels per vertical canvas unit — bigger = taller, more readable. */
+const V_SCALE = 3.2;
 
 /**
  * The native 2D board: absolutely-positioned draggable chips (y ≈ value,
@@ -98,13 +100,26 @@ export function BoardCanvas({
     }
   }
 
+  function autoArrange() {
+    setPlacements((prev) => {
+      const next = spreadPlacements(prev);
+      save(next);
+      return next;
+    });
+  }
+
   return (
     <div className="canvas-wrap">
-      {saving && <span className="canvas-saving muted">saving…</span>}
+      <div className="canvas-toolbar">
+        <button type="button" className="secondary" onClick={autoArrange}>
+          Auto-arrange
+        </button>
+        {saving && <span className="canvas-saving muted">saving…</span>}
+      </div>
       <div
         ref={surfaceRef}
         className="canvas-surface"
-        style={{ aspectRatio: `${CANVAS_WIDTH} / ${maxY}` }}
+        style={{ width: "100%", height: `${maxY * V_SCALE}px` }}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >

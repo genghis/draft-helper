@@ -4,6 +4,23 @@ import type { Placement, TierBand } from "./types.js";
 export const RANK_SPACING = 10;
 /** Default horizontal center for imported placements. */
 export const DEFAULT_X = 500;
+/** How many horizontal lanes the initial import zigzag uses. */
+export const SPREAD_LANES = 4;
+/** Canvas x units between adjacent lanes. */
+export const SPREAD_LANE_GAP = 160;
+
+/**
+ * Horizontal offset for the i-th player in value order — a triangle wave
+ * across the lanes (0,1,2,3,2,1,0,…). Adjacent players always land one lane
+ * apart, so they read clearly instead of stacking in one column, while y
+ * still carries the value ordering.
+ */
+export function spreadOffset(index: number): number {
+  const period = (SPREAD_LANES - 1) * 2;
+  const p = index % period;
+  const lane = p < SPREAD_LANES ? p : period - p;
+  return (lane - (SPREAD_LANES - 1) / 2) * SPREAD_LANE_GAP;
+}
 
 export interface RankedPlayer {
   playerId: string;
@@ -12,8 +29,9 @@ export interface RankedPlayer {
 }
 
 /**
- * Lays ranked, tiered players onto the canvas: y from rank, tier bands as
- * horizontal stripes with boundaries midway between adjacent tiers' ranks.
+ * Lays ranked, tiered players onto the canvas: y from rank, x spread across
+ * lanes so chips don't overlap, tier bands as horizontal stripes with
+ * boundaries midway between adjacent tiers' ranks.
  */
 export function layoutFromRanked(ranked: RankedPlayer[]): {
   placements: Record<string, Placement>;
@@ -21,9 +39,9 @@ export function layoutFromRanked(ranked: RankedPlayer[]): {
 } {
   const sorted = [...ranked].sort((a, b) => a.rank - b.rank);
   const placements: Record<string, Placement> = {};
-  for (const r of sorted) {
-    placements[r.playerId] = { x: DEFAULT_X, y: r.rank * RANK_SPACING };
-  }
+  sorted.forEach((r, i) => {
+    placements[r.playerId] = { x: DEFAULT_X + spreadOffset(i), y: r.rank * RANK_SPACING };
+  });
 
   const bands: TierBand[] = [];
   const tiers = [...new Set(sorted.map((r) => r.tier))].sort((a, b) => a - b);
@@ -43,6 +61,22 @@ export function layoutFromRanked(ranked: RankedPlayer[]): {
     });
   }
   return { placements, bands };
+}
+
+/**
+ * Re-spaces an existing layout: keeps each player's y (value) but reassigns x
+ * to the lane zigzag in value order. Used to tidy a board — including ones
+ * imported before the spread existed — without disturbing the tier bands.
+ */
+export function spreadPlacements(
+  placements: Record<string, Placement>
+): Record<string, Placement> {
+  const ids = Object.keys(placements).sort((a, b) => placements[a]!.y - placements[b]!.y);
+  const next: Record<string, Placement> = {};
+  ids.forEach((id, i) => {
+    next[id] = { x: DEFAULT_X + spreadOffset(i), y: placements[id]!.y };
+  });
+  return next;
 }
 
 export interface BandGroup {
