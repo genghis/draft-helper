@@ -157,8 +157,8 @@ function AdpCell({
           className={value > 0 ? "adp-value adp-value-up" : "adp-value adp-value-down"}
           title={
             value > 0
-              ? "Value — the market drafts him later than you rank him"
-              : "Reach — you rank him ahead of the market"
+              ? "Value — the market drafts him later than you rank him (he may fall to you)"
+              : "The market drafts him earlier than you rank him (likely gone by your slot)"
           }
         >
           {value > 0 ? `+${value}` : value}
