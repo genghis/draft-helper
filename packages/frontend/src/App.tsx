@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { BoardMeta, SessionUser, SourceMeta } from "@drafthelper/shared";
 import { api, ApiError } from "./api/client";
+import { useAdp } from "./state/adp";
 import { usePlayers } from "./state/players";
 import { AdminPanel } from "./views/AdminPanel";
 import { BoardsView } from "./views/BoardsView";
@@ -20,6 +21,7 @@ export function App() {
   const [sources, setSources] = useState<SourceMeta[]>([]);
   const [view, setView] = useState<View>("sortings");
   const { players, byId, error: playersError } = usePlayers();
+  const adp = useAdp();
 
   useEffect(() => {
     api<SessionUser>("/me")
@@ -91,7 +93,7 @@ export function App() {
               onDeleted={(id) => setSources((prev) => prev.filter((s) => s.id !== id))}
             />
           ) : view === "draft" && players ? (
-            <DraftDayView boards={boards} players={players} playersById={byId} />
+            <DraftDayView boards={boards} players={players} playersById={byId} adp={adp} />
           ) : view === "settings" ? (
             <SettingsView />
           ) : (
@@ -99,6 +101,7 @@ export function App() {
               boards={boards}
               sources={sources}
               playersById={byId}
+              adp={adp}
               onSortingCreated={onSortingCreated}
               onBoardDeleted={(id) => setBoards((prev) => prev.filter((b) => b.id !== id))}
             />

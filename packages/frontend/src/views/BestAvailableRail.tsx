@@ -1,16 +1,18 @@
 import type { BoardLayout, BoardMeta, Pick, Player } from "@drafthelper/shared";
-import { bestAvailable, currentTierScarcity } from "@drafthelper/shared";
+import { bestAvailable, currentTierScarcity, primaryAdp } from "@drafthelper/shared";
+import type { AdpLookup } from "../state/adp";
 import "./BestAvailableRail.css";
 
 interface Props {
   boards: BoardMeta[];
   layouts: Map<string, BoardLayout>;
   playersById: Map<string, Player>;
+  adp: AdpLookup;
   picks: Map<string, Pick>;
 }
 
-/** Per-position card: current tier scarcity + top remaining players. */
-export function BestAvailableRail({ boards, layouts, playersById, picks }: Props) {
+/** Per-position card: current tier scarcity + top remaining players with ADP. */
+export function BestAvailableRail({ boards, layouts, playersById, adp, picks }: Props) {
   const picked = new Set(picks.keys());
   return (
     <div className="rail">
@@ -36,9 +38,19 @@ export function BestAvailableRail({ boards, layouts, playersById, picks }: Props
               )}
             </header>
             <ol className="rail-names">
-              {top.map((id) => (
-                <li key={id}>{playersById.get(id)?.name ?? id}</li>
-              ))}
+              {top.map((id) => {
+                const marketAdp = primaryAdp(adp.forPlayer(board.scoring, id));
+                return (
+                  <li key={id}>
+                    <span className="rail-player">{playersById.get(id)?.name ?? id}</span>
+                    {marketAdp != null && (
+                      <span className="rail-adp" title="Market ADP (overall pick)">
+                        {Math.round(marketAdp)}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ol>
           </section>
         );

@@ -1,12 +1,26 @@
-import type { BoardAgreement, BoardLayout, BoardMeta, Pick, Player } from "@drafthelper/shared";
-import { highDisagreementIds, projectBands } from "@drafthelper/shared";
+import type {
+  AdpForPlayer,
+  BoardAgreement,
+  BoardLayout,
+  BoardMeta,
+  Pick,
+  Player,
+} from "@drafthelper/shared";
+import { adpDivergence, adpValue, boardAdpRanks, highDisagreementIds, primaryAdp, projectBands } from "@drafthelper/shared";
+import type { AdpLookup } from "../state/adp";
 import "./TierListView.css";
+
+/** Gap (in ADP picks) at which the two markets are called "split". */
+const ADP_DIVERGENCE_THRESHOLD = 12;
+/** Minimum |value| worth surfacing as a value/reach tag. */
+const VALUE_THRESHOLD = 4;
 
 interface Props {
   meta: BoardMeta;
   layout: BoardLayout;
   agreement?: BoardAgreement;
   playersById: Map<string, Player>;
+  adp: AdpLookup;
   picks: Map<string, Pick>;
   onMark: (playerId: string, mine: boolean) => void;
   onUnmark: (playerId: string) => void;
@@ -17,6 +31,7 @@ export function TierListView({
   layout,
   agreement,
   playersById,
+  adp,
   picks,
   onMark,
   onUnmark,
@@ -24,6 +39,14 @@ export function TierListView({
   const groups = projectBands(layout.placements, meta.bands);
   const sourceCount = meta.sourceIds?.length ?? 0;
   const splitIds = agreement ? highDisagreementIds(agreement) : new Set<string>();
+
+  // Rank this board's players by market ADP so value = market rank - your rank.
+  const primaryAdpById = new Map<string, number>();
+  for (const id of Object.keys(layout.placements)) {
+    const v = primaryAdp(adp.forPlayer(meta.scoring, id));
+    if (v != null) primaryAdpById.set(id, v);
+  }
+  const adpRankById = boardAdpRanks(primaryAdpById);
   let overallRank = 0;
 
   return (
@@ -51,6 +74,7 @@ export function TierListView({
                 const player = playersById.get(id);
                 const pick = picks.get(id);
                 const gone = pick !== undefined;
+                const adpVals = adp.forPlayer(meta.scoring, id);
                 const rowClass = [
                   "tier-row",
                   gone && (pick.mine ? "tier-row-mine" : "tier-row-gone"),
@@ -68,6 +92,13 @@ export function TierListView({
                       <span className="tier-rank">{overallRank}</span>
                       <span className="tier-name">{player?.name ?? id}</span>
                       <span className="tier-team">{player?.team ?? ""}</span>
+                      {!gone && (
+                        <AdpCell
+                          vals={adpVals}
+                          boardRank={overallRank}
+                          adpRank={adpRankById.get(id)}
+                        />
+                      )}
                     </button>
                     {!gone && (
                       <button
@@ -98,6 +129,47 @@ export function TierListView({
         );
       })}
     </div>
+  );
+}
+
+/** Side-by-side ESPN/FFC ADP, a value-vs-market tag, and a divergence flag. */
+function AdpCell({
+  vals,
+  boardRank,
+  adpRank,
+}: {
+  vals: AdpForPlayer;
+  boardRank: number;
+  adpRank: number | undefined;
+}) {
+  if (vals.espn == null && vals.ffc == null) return null;
+  const fmt = (n: number | undefined) => (n == null ? "—" : Math.round(n));
+  const divergence = adpDivergence(vals);
+  const value = adpRank != null ? adpValue(boardRank, adpRank) : null;
+  return (
+    <span className="tier-adp">
+      <span className="adp-pair" title="ESPN · FFC average draft position">
+        <span className="adp-espn">E{fmt(vals.espn)}</span>
+        <span className="adp-ffc">F{fmt(vals.ffc)}</span>
+      </span>
+      {value != null && Math.abs(value) >= VALUE_THRESHOLD && (
+        <span
+          className={value > 0 ? "adp-value adp-value-up" : "adp-value adp-value-down"}
+          title={
+            value > 0
+              ? "Value — the market drafts him later than you rank him"
+              : "Reach — you rank him ahead of the market"
+          }
+        >
+          {value > 0 ? `+${value}` : value}
+        </span>
+      )}
+      {divergence != null && divergence >= ADP_DIVERGENCE_THRESHOLD && (
+        <span className="agree-badge agree-split" title={`Markets disagree by ~${Math.round(divergence)} picks`}>
+          ⇄
+        </span>
+      )}
+    </span>
   );
 }
 

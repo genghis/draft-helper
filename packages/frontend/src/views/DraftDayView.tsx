@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { BoardLayout, BoardMeta, Pick, Player } from "@drafthelper/shared";
 import { searchPlayers } from "@drafthelper/shared";
 import { api } from "../api/client";
+import type { AdpLookup } from "../state/adp";
 import { useDraft } from "../state/draft";
 import { BestAvailableRail } from "./BestAvailableRail";
 import "./DraftDayView.css";
@@ -10,6 +11,7 @@ interface Props {
   boards: BoardMeta[];
   players: Player[];
   playersById: Map<string, Player>;
+  adp: AdpLookup;
 }
 
 interface Toast {
@@ -21,7 +23,7 @@ interface Toast {
 const TOAST_MS = 5000;
 const LOG_SIZE = 10;
 
-export function DraftDayView({ boards, players, playersById }: Props) {
+export function DraftDayView({ boards, players, playersById, adp }: Props) {
   const draft = useDraft({ poll: true });
   const [layouts, setLayouts] = useState<Map<string, BoardLayout>>(new Map());
   const [query, setQuery] = useState("");
@@ -200,6 +202,7 @@ export function DraftDayView({ boards, players, playersById }: Props) {
         boards={boards}
         layouts={layouts}
         playersById={playersById}
+        adp={adp}
         picks={draft.picks}
       />
 

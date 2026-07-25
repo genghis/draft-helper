@@ -1,9 +1,16 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import type { Player, Position } from "@drafthelper/shared";
-import { canonicalTeamAbbrev, espnProTeamAbbrev, normalizeName } from "@drafthelper/shared";
+import type { AdpFile, ParsedEntry, Player, Position, ScoringFormat } from "@drafthelper/shared";
+import { canonicalTeamAbbrev, espnProTeamAbbrev, matchEntries, normalizeName } from "@drafthelper/shared";
+import { fetchEspnAdp, fetchFfcAdp } from "../adp/fetch.js";
 
 const SLEEPER_URL = "https://api.sleeper.app/v1/players/nfl";
 const FANTASY_POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);
+/** Our scoring format -> FFC's format slug. */
+const FFC_FORMATS: Record<ScoringFormat, string> = {
+  STD: "standard",
+  HALF: "half-ppr",
+  PPR: "ppr",
+};
 
 // ESPN's player universe — authoritative source of ESPN player ids. Sleeper's
 // espn_id crossref is missing for most recent players and all defenses (~21%
@@ -138,5 +145,60 @@ export async function handler(): Promise<{ count: number }> {
     })
   );
 
+  // ADP is a best-effort secondary artifact: never let a flaky ESPN/FFC fetch
+  // break the critical players.json refresh above.
+  try {
+    await publishAdp(bucket, players);
+  } catch (err) {
+    console.error("ADP refresh failed (players.json still published):", err);
+  }
+
   return { count: players.length };
+}
+
+const ADP_SEASON = Number(process.env.ADP_SEASON ?? new Date().getFullYear());
+
+/** Fetches ESPN + FFC ADP, maps both onto Sleeper ids, publishes adp.json. */
+async function publishAdp(bucket: string, players: Player[]): Promise<void> {
+  const [espnByEspnId, ffcByFormat] = await Promise.all([
+    fetchEspnAdp(ADP_SEASON),
+    Promise.all(
+      (Object.entries(FFC_FORMATS) as [ScoringFormat, string][]).map(
+        async ([scoring, slug]) => [scoring, await fetchFfcAdp(slug, ADP_SEASON)] as const
+      )
+    ),
+  ]);
+
+  // ESPN -> Sleeper by id (already crossref'd on each player).
+  const espn: Record<string, number> = {};
+  for (const p of players) {
+    const adp = p.espnId != null ? espnByEspnId.get(p.espnId) : undefined;
+    if (adp != null) espn[p.id] = adp;
+  }
+
+  // FFC -> Sleeper by name, reusing the import matcher against the full pool.
+  const ffc = { STD: {}, HALF: {}, PPR: {} } as Record<ScoringFormat, Record<string, number>>;
+  for (const [scoring, entries] of ffcByFormat) {
+    const parsed: ParsedEntry[] = entries.map((e, i) => ({ name: e.name, rank: i, tier: 1 }));
+    const { matched } = matchEntries(parsed, players, "OVERALL");
+    for (const m of matched) ffc[scoring][m.player.id] = entries[m.entry.rank]!.adp;
+  }
+
+  const espnCount = Object.keys(espn).length;
+  const ffcCount = Object.keys(ffc.PPR).length;
+  console.log(`ADP: espn ${espnCount}, ffc(ppr) ${ffcCount}`);
+  if (espnCount === 0 && ffcCount === 0) {
+    throw new Error("both ADP sources empty; not overwriting adp.json");
+  }
+
+  const file: AdpFile = { updatedAt: new Date().toISOString(), espn, ffc };
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: "adp.json",
+      Body: JSON.stringify(file),
+      ContentType: "application/json",
+      CacheControl: "public, max-age=300",
+    })
+  );
 }

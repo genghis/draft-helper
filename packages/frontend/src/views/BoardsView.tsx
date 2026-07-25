@@ -7,6 +7,7 @@ import type {
   SourceMeta,
 } from "@drafthelper/shared";
 import { api } from "../api/client";
+import type { AdpLookup } from "../state/adp";
 import { useDraft } from "../state/draft";
 import { BoardCanvas } from "./BoardCanvas";
 import { NewSortingModal } from "./NewSortingModal";
@@ -17,6 +18,7 @@ interface Props {
   boards: BoardMeta[];
   sources: SourceMeta[];
   playersById: Map<string, Player>;
+  adp: AdpLookup;
   onSortingCreated: (board: BoardMeta) => void;
   onBoardDeleted: (id: string) => void;
 }
@@ -25,6 +27,7 @@ export function BoardsView({
   boards,
   sources,
   playersById,
+  adp,
   onSortingCreated,
   onBoardDeleted,
 }: Props) {
@@ -165,6 +168,7 @@ export function BoardsView({
               layout={board.layout}
               agreement={board.agreement}
               playersById={playersById}
+              adp={adp}
               picks={draft.picks}
               onMark={draft.mark}
               onUnmark={draft.unmark}

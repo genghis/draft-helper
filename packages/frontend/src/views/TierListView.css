@@ -128,3 +128,43 @@
   color: #8e7cc3;
   border: 1px solid color-mix(in srgb, #8e7cc3 60%, transparent);
 }
+
+.tier-adp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  padding-left: 0.75rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.adp-pair {
+  display: inline-flex;
+  gap: 0.35rem;
+  opacity: 0.7;
+}
+
+.adp-espn {
+  color: #cc4b37;
+}
+
+.adp-ffc {
+  color: #3a7ca5;
+}
+
+.adp-value {
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+}
+
+.adp-value-up {
+  color: #27ae60;
+  border: 1px solid color-mix(in srgb, #27ae60 55%, transparent);
+}
+
+.adp-value-down {
+  color: #9aa0a6;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+}

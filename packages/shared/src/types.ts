@@ -86,6 +86,24 @@ export interface PlayerAgreement {
 /** playerId -> agreement; present only on consensus-seeded boards. */
 export type BoardAgreement = Record<string, PlayerAgreement>;
 
+/** A player's ADP from each market, for one scoring format. */
+export interface AdpForPlayer {
+  /** ESPN market ADP (overall pick number); format-agnostic. */
+  espn?: number;
+  /** Fantasy Football Calculator ADP for the relevant format. */
+  ffc?: number;
+}
+
+/**
+ * Published ADP feed (adp.json). ESPN gives a single ADP per player; FFC is
+ * per scoring format. Both keyed by canonical (Sleeper) player id.
+ */
+export interface AdpFile {
+  updatedAt: string;
+  espn: Record<string, number>;
+  ffc: Record<ScoringFormat, Record<string, number>>;
+}
+
 export interface BoardLayout {
   /** playerId -> placement; one atomic document. */
   placements: Record<string, Placement>;

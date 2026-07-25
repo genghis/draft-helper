@@ -41,3 +41,22 @@
 .rail-names li {
   padding: 0.1rem 0;
 }
+
+.rail-names li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.rail-player {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-adp {
+  font-size: 0.75rem;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
