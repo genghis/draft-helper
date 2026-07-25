@@ -1,3 +1,5 @@
+import type { RankedPlayer } from "./tiers.js";
+
 export type Position = "QB" | "RB" | "WR" | "TE" | "K" | "DST";
 
 export type ScoringFormat = "STD" | "HALF" | "PPR";
@@ -31,8 +33,15 @@ export interface TierBand {
   label: string;
 }
 
-/** Boards are per-position in Phase 1, mirroring how tier sources publish. */
-export type BoardPosition = Position | "FLX";
+/**
+ * Scope of a ranking list. Per-position (mirroring how tier sources publish),
+ * FLX (RB/WR/TE), or OVERALL — a full cross-position draft board (top-200
+ * style, e.g. FootballGuys / BeerSheets).
+ */
+export type BoardPosition = Position | "FLX" | "OVERALL";
+
+/** How a sorting (board) was seeded from sources. */
+export type SeedTool = "single" | "consensus";
 
 export interface BoardMeta {
   id: string;
@@ -43,6 +52,27 @@ export interface BoardMeta {
   bands: TierBand[];
   createdAt: string;
   updatedAt: string;
+  /** Immutable sources this sorting was seeded from (provenance; optional). */
+  sourceIds?: string[];
+  /** Tool that seeded this sorting (optional; absent on directly-made boards). */
+  seededBy?: SeedTool;
+}
+
+/** One immutable imported ranking list; the raw input to sortings. */
+export interface SourceMeta {
+  id: string;
+  ownerId: string;
+  name: string;
+  scope: BoardPosition;
+  scoring: ScoringFormat;
+  entryCount: number;
+  createdAt: string;
+}
+
+export interface Source {
+  meta: SourceMeta;
+  /** Ranked players with canonical (Sleeper) ids; immutable once created. */
+  entries: RankedPlayer[];
 }
 
 export interface BoardLayout {

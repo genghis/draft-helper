@@ -1,22 +1,23 @@
 import { useState } from "react";
 import type {
-  BoardMeta,
   BoardPosition,
   MatchResult,
   MatchedEntry,
   Player,
+  RankedPlayer,
   ScoringFormat,
+  SourceMeta,
 } from "@drafthelper/shared";
-import { layoutFromRanked, matchEntries, parseRankings } from "@drafthelper/shared";
+import { matchEntries, parseRankings } from "@drafthelper/shared";
 import { api } from "../api/client";
 import "./ImportView.css";
 
-const POSITIONS: BoardPosition[] = ["QB", "RB", "WR", "TE", "FLX", "K", "DST"];
+const SCOPES: BoardPosition[] = ["OVERALL", "QB", "RB", "WR", "TE", "FLX", "K", "DST"];
 const SCORINGS: ScoringFormat[] = ["PPR", "HALF", "STD"];
 
 interface Props {
   players: Player[];
-  onCreated: (board: BoardMeta) => void;
+  onCreated: (source: SourceMeta) => void;
   onCancel: () => void;
 }
 
@@ -26,9 +27,10 @@ type Stage =
   | { kind: "creating" };
 
 export function ImportView({ players, onCreated, onCancel }: Props) {
-  const [position, setPosition] = useState<BoardPosition>("RB");
+  const [scope, setScope] = useState<BoardPosition>("OVERALL");
   const [scoring, setScoring] = useState<ScoringFormat>("PPR");
   const [pasted, setPasted] = useState("");
+  const [name, setName] = useState("");
   const [stage, setStage] = useState<Stage>({ kind: "pick" });
   const [error, setError] = useState<string | null>(null);
   // review-stage selections: entry rank -> chosen playerId ("" = skip)
@@ -40,12 +42,13 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
       setError("Couldn't find any players in that content.");
       return;
     }
-    const result = matchEntries(entries, players, position);
+    const result = matchEntries(entries, players, scope);
     setResolutions(
       Object.fromEntries(
         result.unmatched.map((u) => [u.entry.rank, u.candidates[0]?.player.id ?? ""])
       )
     );
+    setName(`${sourceLabel} — ${scope} ${scoring}`);
     setStage({ kind: "review", result, sourceLabel });
   }
 
@@ -53,7 +56,7 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
     setError(null);
     try {
       const res = await api<{ content: string }>(
-        `/imports/borischen?position=${position}&scoring=${scoring}`
+        `/imports/borischen?position=${scope}&scoring=${scoring}`
       );
       startReview(res.content, "Boris Chen");
     } catch (e) {
@@ -61,7 +64,7 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
     }
   }
 
-  async function createBoard(result: MatchResult, sourceLabel: string) {
+  async function createSource(result: MatchResult, sourceLabel: string) {
     setStage({ kind: "creating" });
     const resolved: MatchedEntry[] = result.unmatched.flatMap((u) => {
       const playerId = resolutions[u.entry.rank];
@@ -69,19 +72,13 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
       return player ? [{ entry: u.entry, player }] : [];
     });
     const all = [...result.matched, ...resolved];
-    const { placements, bands } = layoutFromRanked(
-      all.map((m) => ({ playerId: m.player.id, rank: m.entry.rank, tier: m.entry.tier }))
-    );
+    const entries: RankedPlayer[] = all
+      .map((m) => ({ playerId: m.player.id, rank: m.entry.rank, tier: m.entry.tier }))
+      .sort((a, b) => a.rank - b.rank);
     try {
-      const meta = await api<BoardMeta>("/boards", {
+      const meta = await api<SourceMeta>("/sources", {
         method: "POST",
-        body: {
-          name: `${position} ${scoring} (${sourceLabel})`,
-          position,
-          scoring,
-          bands,
-          placements,
-        },
+        body: { name: name.trim() || `${sourceLabel} — ${scope} ${scoring}`, scope, scoring, entries },
       });
       onCreated(meta);
     } catch (e) {
@@ -93,10 +90,14 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
   if (stage.kind === "review" || stage.kind === "creating") {
     const { result, sourceLabel } =
       stage.kind === "review" ? stage : { result: null, sourceLabel: "" };
-    if (!result) return <p className="muted">Creating board…</p>;
+    if (!result) return <p className="muted">Saving source…</p>;
     return (
       <section className="import-view">
         <h2>Review import</h2>
+        <label className="import-name-field">
+          Source name
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+        </label>
         <p>
           {result.matched.length} matched automatically
           {result.unmatched.length > 0 &&
@@ -128,8 +129,8 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
           </ul>
         )}
         <div className="import-actions">
-          <button type="button" onClick={() => createBoard(result, sourceLabel)}>
-            Create board
+          <button type="button" onClick={() => createSource(result, sourceLabel)}>
+            Save source
           </button>
           <button type="button" className="secondary" onClick={() => setStage({ kind: "pick" })}>
             Back
@@ -142,15 +143,12 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
 
   return (
     <section className="import-view">
-      <h2>Import rankings</h2>
+      <h2>Import a ranking source</h2>
       <div className="import-controls">
         <label>
-          Position
-          <select
-            value={position}
-            onChange={(e) => setPosition(e.target.value as BoardPosition)}
-          >
-            {POSITIONS.map((p) => (
+          Scope
+          <select value={scope} onChange={(e) => setScope(e.target.value as BoardPosition)}>
+            {SCOPES.map((p) => (
               <option key={p}>{p}</option>
             ))}
           </select>
@@ -167,12 +165,18 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
           </select>
         </label>
       </div>
-      <div className="import-actions">
-        <button type="button" onClick={fetchBorisChen}>
-          Fetch Boris Chen tiers
-        </button>
-      </div>
-      <p className="muted">…or paste tiers / CSV / a ranked list:</p>
+      {scope !== "OVERALL" && (
+        <div className="import-actions">
+          <button type="button" onClick={fetchBorisChen}>
+            Fetch Boris Chen tiers
+          </button>
+        </div>
+      )}
+      <p className="muted">
+        {scope === "OVERALL"
+          ? "Paste an overall/full-draft ranking (tiers, CSV, or a ranked list):"
+          : "…or paste tiers / CSV / a ranked list:"}
+      </p>
       <textarea
         value={pasted}
         onChange={(e) => setPasted(e.target.value)}

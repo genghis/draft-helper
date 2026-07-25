@@ -3,7 +3,9 @@ import { getCookie } from "hono/cookie";
 import type {
   BoardPosition,
   Placement,
+  RankedPlayer,
   ScoringFormat,
+  SeedTool,
   SessionUser,
   TierBand,
 } from "@drafthelper/shared";
@@ -32,6 +34,12 @@ import {
   revokeExtToken,
 } from "./db/extTokens.js";
 import {
+  createSource,
+  deleteSource,
+  getSource,
+  listSources,
+} from "./db/sources.js";
+import {
   createUser,
   getUser,
   getUserIdByInviteHash,
@@ -43,8 +51,10 @@ import { fetchCompletedDraft, fetchLeagueName } from "./espn/client.js";
 import { fetchBorisChen } from "./import/borischen.js";
 import { getPlayerMaps } from "./players/load.js";
 
-const POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DST", "FLX"]);
+const POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DST", "FLX", "OVERALL"]);
 const SCORINGS = new Set(["STD", "HALF", "PPR"]);
+const SEED_TOOLS = new Set(["single", "consensus"]);
+const MAX_SOURCE_ENTRIES = 1000;
 import {
   SESSION_COOKIE,
   hashInviteToken,
@@ -221,6 +231,8 @@ app.post("/boards", async (c) => {
       scoring?: unknown;
       bands?: unknown;
       placements?: unknown;
+      sourceIds?: unknown;
+      seededBy?: unknown;
     }>()
     .catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
@@ -240,14 +252,74 @@ app.post("/boards", async (c) => {
   ) {
     return c.json({ error: "invalid board" }, 400);
   }
+  const sourceIds =
+    Array.isArray(body?.sourceIds) && body.sourceIds.every((s) => typeof s === "string")
+      ? (body.sourceIds as string[])
+      : undefined;
+  const seededBy =
+    typeof body?.seededBy === "string" && SEED_TOOLS.has(body.seededBy)
+      ? (body.seededBy as SeedTool)
+      : undefined;
   const meta = await createBoard(c.get("user").id, {
     name,
     position: position as BoardPosition,
     scoring: scoring as ScoringFormat,
     bands: bands as TierBand[],
     placements: placements as Record<string, Placement>,
+    sourceIds,
+    seededBy,
   });
   return c.json(meta, 201);
+});
+
+// ── Sources (immutable imported ranking lists) ────────────────────────
+app.get("/sources", async (c) => c.json(await listSources(c.get("user").id)));
+
+app.post("/sources", async (c) => {
+  const body = await c.req
+    .json<{ name?: unknown; scope?: unknown; scoring?: unknown; entries?: unknown }>()
+    .catch(() => null);
+  const name = typeof body?.name === "string" ? body.name.trim() : "";
+  const scope = body?.scope as string;
+  const scoring = body?.scoring as string;
+  const entries = body?.entries;
+  const validEntries =
+    Array.isArray(entries) &&
+    entries.length > 0 &&
+    entries.length <= MAX_SOURCE_ENTRIES &&
+    entries.every(
+      (e) =>
+        typeof e?.playerId === "string" &&
+        typeof e?.rank === "number" &&
+        typeof e?.tier === "number"
+    );
+  if (!name || name.length > 80 || !POSITIONS.has(scope) || !SCORINGS.has(scoring) || !validEntries) {
+    return c.json({ error: "invalid source" }, 400);
+  }
+  const meta = await createSource(c.get("user").id, {
+    name,
+    scope: scope as BoardPosition,
+    scoring: scoring as ScoringFormat,
+    entries: entries as RankedPlayer[],
+  });
+  return c.json(meta, 201);
+});
+
+app.get("/sources/:id", async (c) => {
+  const source = await getSource(c.req.param("id"));
+  if (!source || source.meta.ownerId !== c.get("user").id) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return c.json(source);
+});
+
+app.delete("/sources/:id", async (c) => {
+  const source = await getSource(c.req.param("id"));
+  if (!source || source.meta.ownerId !== c.get("user").id) {
+    return c.json({ error: "not found" }, 404);
+  }
+  await deleteSource(c.req.param("id"));
+  return c.json({ ok: true });
 });
 
 app.get("/boards/:id", async (c) => {

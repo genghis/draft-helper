@@ -75,4 +75,14 @@ describe("matchEntries", () => {
     expect(res.matched).toHaveLength(0);
     expect(res.unmatched[0]?.candidates.length).toBeGreaterThan(0);
   });
+
+  it("matches across all positions for an OVERALL scope, DST included", () => {
+    const res = matchEntries(
+      [entry("Josh Allen"), entry("Jahmyr Gibbs"), entry("Broncos D/ST")],
+      players,
+      "OVERALL"
+    );
+    expect(res.unmatched).toHaveLength(0);
+    expect(res.matched.map((m) => m.player.id).sort()).toEqual(["4", "5", "6"]);
+  });
 });

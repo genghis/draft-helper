@@ -2,6 +2,7 @@ export * from "./types.js";
 export * from "./normalize.js";
 export * from "./search.js";
 export * from "./espnPicks.js";
+export * from "./consensus.js";
 export * from "./tiers.js";
 export * from "./parse/borischen.js";
 export * from "./parse/espnDraft.js";

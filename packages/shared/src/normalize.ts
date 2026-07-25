@@ -52,8 +52,14 @@ function isNicknameVariant(a: string, b: string): boolean {
 }
 
 function poolFor(position: BoardPosition, players: Player[]): Player[] {
+  if (position === "OVERALL") return players;
   if (position === "FLX") return players.filter((p) => FLEX_POSITIONS.has(p.position));
   return players.filter((p) => p.position === position);
+}
+
+/** A row that looks like a team defense ("Broncos D/ST", "49ers DST"). */
+function looksLikeDst(normalized: string): boolean {
+  return /\b(d st|dst|defense)\b/.test(normalized);
 }
 
 /**
@@ -98,10 +104,13 @@ export function matchEntries(
     }
 
     // DST rows often arrive as "Broncos D/ST" or bare mascots; match on the
-    // mascot token against team-defense names ("Denver Broncos").
-    if (position === "DST") {
+    // mascot token against team-defense names ("Denver Broncos"). Fires for a
+    // DST-scoped list, or for a DST-looking row inside an OVERALL list.
+    if (position === "DST" || (position === "OVERALL" && looksLikeDst(norm))) {
       const mascot = norm.replace(/\b(d st|dst|defense)\b/g, "").trim().split(" ").pop() ?? "";
-      const byMascot = pool.filter((p) => normalizeName(p.name).endsWith(` ${mascot}`));
+      const byMascot = pool.filter(
+        (p) => p.position === "DST" && normalizeName(p.name).endsWith(` ${mascot}`)
+      );
       if (mascot && byMascot.length === 1) {
         result.matched.push({ entry, player: byMascot[0]! });
         continue;

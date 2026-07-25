@@ -50,3 +50,16 @@
 .import-error {
   color: #c0392b;
 }
+
+.import-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  max-width: 28rem;
+}
+
+.import-name-field input {
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+}

@@ -11,6 +11,7 @@ import type {
   BoardPosition,
   Placement,
   ScoringFormat,
+  SeedTool,
   TierBand,
 } from "@drafthelper/shared";
 import { ddb, TABLE_NAME } from "./client.js";
@@ -21,6 +22,8 @@ export interface NewBoard {
   scoring: ScoringFormat;
   bands: TierBand[];
   placements: Record<string, Placement>;
+  sourceIds?: string[];
+  seededBy?: SeedTool;
 }
 
 function toMeta(id: string, item: Record<string, unknown>): BoardMeta {
@@ -33,6 +36,8 @@ function toMeta(id: string, item: Record<string, unknown>): BoardMeta {
     bands: (item.bands as TierBand[]) ?? [],
     createdAt: item.createdAt as string,
     updatedAt: item.updatedAt as string,
+    sourceIds: item.sourceIds as string[] | undefined,
+    seededBy: item.seededBy as SeedTool | undefined,
   };
 }
 
@@ -55,6 +60,9 @@ export async function createBoard(ownerId: string, input: NewBoard): Promise<Boa
               bands: input.bands,
               createdAt: now,
               updatedAt: now,
+              // Omitted when undefined (removeUndefinedValues is on).
+              sourceIds: input.sourceIds,
+              seededBy: input.seededBy,
             },
           },
         },
@@ -80,16 +88,18 @@ export async function createBoard(ownerId: string, input: NewBoard): Promise<Boa
     bands: input.bands,
     createdAt: now,
     updatedAt: now,
+    sourceIds: input.sourceIds,
+    seededBy: input.seededBy,
   });
 }
 
-/** Scan is fine: a league's worth of boards is tiny. */
+/** Scan is fine at league scale; the pk guard keeps source META items out. */
 export async function listBoards(ownerId: string): Promise<BoardMeta[]> {
   const res = await ddb.send(
     new ScanCommand({
       TableName: TABLE_NAME,
-      FilterExpression: "sk = :meta AND ownerId = :owner",
-      ExpressionAttributeValues: { ":meta": "META", ":owner": ownerId },
+      FilterExpression: "sk = :meta AND ownerId = :owner AND begins_with(pk, :prefix)",
+      ExpressionAttributeValues: { ":meta": "META", ":owner": ownerId, ":prefix": "BOARD#" },
     })
   );
   return (res.Items ?? [])

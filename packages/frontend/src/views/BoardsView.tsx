@@ -1,23 +1,32 @@
 import { useCallback, useEffect, useState } from "react";
-import type { BoardLayout, BoardMeta, Player } from "@drafthelper/shared";
+import type { BoardLayout, BoardMeta, Player, SourceMeta } from "@drafthelper/shared";
 import { api } from "../api/client";
 import { useDraft } from "../state/draft";
 import { BoardCanvas } from "./BoardCanvas";
+import { NewSortingModal } from "./NewSortingModal";
 import { TierListView } from "./TierListView";
 import "./BoardsView.css";
 
 interface Props {
   boards: BoardMeta[];
+  sources: SourceMeta[];
   playersById: Map<string, Player>;
-  onImport: () => void;
+  onSortingCreated: (board: BoardMeta) => void;
   onBoardDeleted: (id: string) => void;
 }
 
-export function BoardsView({ boards, playersById, onImport, onBoardDeleted }: Props) {
+export function BoardsView({
+  boards,
+  sources,
+  playersById,
+  onSortingCreated,
+  onBoardDeleted,
+}: Props) {
   const [activeId, setActiveId] = useState<string | null>(boards[0]?.id ?? null);
   const [board, setBoard] = useState<{ meta: BoardMeta; layout: BoardLayout } | null>(null);
   const [mode, setMode] = useState<"list" | "canvas">("list");
   const [conflictNotice, setConflictNotice] = useState(false);
+  const [showNew, setShowNew] = useState(false);
   const draft = useDraft();
 
   useEffect(() => {
@@ -53,19 +62,33 @@ export function BoardsView({ boards, playersById, onImport, onBoardDeleted }: Pr
     await draft.reset();
   }
 
+  const newSortingModal = showNew && (
+    <NewSortingModal
+      sources={sources}
+      onCreated={(b) => {
+        setShowNew(false);
+        setActiveId(b.id);
+        onSortingCreated(b);
+      }}
+      onClose={() => setShowNew(false)}
+    />
+  );
+
   if (boards.length === 0) {
     return (
       <section className="boards-empty">
-        <p>No boards yet — import your first tiers to get started.</p>
-        <button type="button" onClick={onImport}>
-          Import rankings
+        <p>No sortings yet — build one from your ranking sources.</p>
+        <button type="button" onClick={() => setShowNew(true)}>
+          New sorting
         </button>
+        {newSortingModal}
       </section>
     );
   }
 
   return (
     <section className="boards-view">
+      {newSortingModal}
       <nav className="board-tabs">
         {boards.map((b) => (
           <button
@@ -77,8 +100,8 @@ export function BoardsView({ boards, playersById, onImport, onBoardDeleted }: Pr
             {b.name}
           </button>
         ))}
-        <button type="button" className="board-tab board-tab-add" onClick={onImport}>
-          + Import
+        <button type="button" className="board-tab board-tab-add" onClick={() => setShowNew(true)}>
+          + New sorting
         </button>
       </nav>
       {conflictNotice && (
@@ -93,6 +116,13 @@ export function BoardsView({ boards, playersById, onImport, onBoardDeleted }: Pr
         <>
           <div className="board-toolbar">
             <span className="muted">
+              {board.meta.seededBy && (
+                <span className="board-provenance">
+                  {board.meta.seededBy === "consensus"
+                    ? `consensus of ${board.meta.sourceIds?.length ?? 0} sources`
+                    : "from 1 source"}
+                </span>
+              )}
               {mode === "list"
                 ? "Tap a player when they're drafted; tap again to undo."
                 : "Drag players to rearrange; drag dashed lines to move tier breaks."}

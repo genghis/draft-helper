@@ -49,3 +49,15 @@
   display: flex;
   gap: 0.5rem;
 }
+
+.board-provenance {
+  display: inline-block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.45rem;
+  margin-right: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  opacity: 0.8;
+}
