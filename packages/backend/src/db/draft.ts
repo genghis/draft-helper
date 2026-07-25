@@ -56,12 +56,19 @@ export async function putPick(
  * Writes an ESPN-observed pick without ever clobbering a manual mark: the
  * conditional put succeeds when the item is new or already ESPN-sourced
  * (re-pushes are idempotent). Returns false when a manual mark won.
- * `source` is a DynamoDB reserved word, hence the #src alias.
+ *
+ * A push that does NOT claim the pick as the user's own additionally refuses
+ * to downgrade an existing mine=true — so a later DOM-rescan (which can't
+ * reliably tell whose pick it is) can never un-flag a pick a WebSocket frame
+ * already attributed to the user. `source`/`mine` are DynamoDB reserved words.
  */
 export async function putEspnPick(
   userId: string,
   pick: { playerId: string; mine: boolean; overall: number }
 ): Promise<boolean> {
+  const condition = pick.mine
+    ? "attribute_not_exists(pk) OR #src = :espn"
+    : "attribute_not_exists(pk) OR (#src = :espn AND #mine <> :true)";
   try {
     await ddb.send(
       new PutCommand({
@@ -75,9 +82,13 @@ export async function putEspnPick(
           pickedAt: new Date().toISOString(),
           overall: pick.overall,
         },
-        ConditionExpression: "attribute_not_exists(pk) OR #src = :espn",
-        ExpressionAttributeNames: { "#src": "source" },
-        ExpressionAttributeValues: { ":espn": "espn" },
+        ConditionExpression: condition,
+        ExpressionAttributeNames: pick.mine
+          ? { "#src": "source" }
+          : { "#src": "source", "#mine": "mine" },
+        ExpressionAttributeValues: pick.mine
+          ? { ":espn": "espn" }
+          : { ":espn": "espn", ":true": true },
       })
     );
     return true;

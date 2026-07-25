@@ -88,22 +88,38 @@ function isPickRow(img: HTMLImageElement): boolean {
   return false;
 }
 
-/** Catch-up scan of whatever pick rows are currently rendered. */
+/**
+ * Catch-up scan of rendered pick rows. It records ids with teamId 0 (unknown)
+ * only — it never guesses "mine" from a roster panel, because that guess can
+ * mis-attribute an opponent's pick. WebSocket SELECTED frames carry the real
+ * teamId and are the sole source of "mine"; the server refuses to downgrade a
+ * mine=true, so a rescan can only fill gaps, never un-flag your picks.
+ */
 function rescan(): void {
-  const rosterPanel = document.querySelector('[class*="roster" i]');
   let changed = false;
   for (const img of Array.from(document.querySelectorAll<HTMLImageElement>("img"))) {
     const match = HEADSHOT_ID.exec(img.src);
     if (!match) continue;
     const id = Number(match[1]);
     if (!Number.isFinite(id)) continue;
-    if (rosterPanel?.contains(img)) changed = record(id, myTeamId || 0) || changed;
-    else if (isPickRow(img)) changed = record(id, 0) || changed;
+    if (isPickRow(img)) changed = record(id, 0) || changed;
   }
   if (changed) sendSnapshot();
 }
 
 window.addEventListener("load", () => {
+  // ESPN team ids are 1-based; 0 means we couldn't read `teamId` from the URL,
+  // so nothing would ever be flagged as the user's own pick. Warn rather than
+  // sync silently with broken "mine" attribution.
+  if (!(myTeamId > 0)) {
+    try {
+      void chrome.runtime
+        .sendMessage({ kind: "warn", text: "Couldn't detect your team — picks won't be flagged as yours." })
+        ?.catch?.(() => {});
+    } catch {
+      /* extension reloading */
+    }
+  }
   setTimeout(rescan, 5_000);
   setInterval(rescan, RESCAN_MS);
   // Heartbeat: re-send the current snapshot so a push lost to a worker

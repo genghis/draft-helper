@@ -98,6 +98,44 @@ function isValidAgreement(v: unknown): boolean {
       typeof (a as { spread?: unknown }).spread === "number"
   );
 }
+
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!
+  );
+}
+
+/**
+ * The invite-link confirmation page. On Continue it POSTs the invite (read from
+ * this page's own URL) to /auth/login with the OAC body-hash header, then lands
+ * in the app — so login needs a deliberate same-site click, not a bare GET.
+ */
+function loginPage(name: string | null, error: string | null): string {
+  const body = error
+    ? `<p class="err">${escapeHtml(error)}</p>`
+    : `<p>Log in to Draft Helper as <strong>${escapeHtml(name ?? "")}</strong>?</p>
+       <button id="go">Continue</button><p id="msg" class="err"></p>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Draft Helper — Sign in</title>
+<style>:root{color-scheme:light dark;font-family:system-ui,-apple-system,sans-serif}
+body{max-width:22rem;margin:4rem auto;padding:0 1rem;text-align:center}
+button{font:inherit;padding:.6rem 1.4rem;margin-top:.5rem;cursor:pointer}
+.err{color:#c0392b}</style></head><body><h1>Draft Helper</h1>${body}
+<script>
+var b=document.getElementById('go');
+if(b)b.addEventListener('click',async function(){
+  b.disabled=true;
+  var invite=new URLSearchParams(location.search).get('invite')||'';
+  var payload=JSON.stringify({invite:invite});
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(payload));
+  var hash=Array.from(new Uint8Array(buf)).map(function(x){return x.toString(16).padStart(2,'0')}).join('');
+  var r=await fetch('/api/auth/login',{method:'POST',headers:{'content-type':'application/json','x-amz-content-sha256':hash},body:payload});
+  if(r.ok){location.href='/'}else{document.getElementById('msg').textContent='Login failed — ask for a fresh invite link.';b.disabled=false}
+});
+</script></body></html>`;
+}
 import {
   SESSION_COOKIE,
   hashInviteToken,
@@ -111,15 +149,30 @@ export const app = new Hono<Env>().basePath("/api");
 
 app.get("/health", (c) => c.json({ ok: true, time: new Date().toISOString() }));
 
+// The invite link opens a confirmation page rather than logging in on GET.
+// This closes login-CSRF (a cross-site GET can no longer silently sign a
+// victim into someone else's account) while keeping links clickable and
+// reusable; the actual cookie is set by the POST below, which requires the
+// user's click and the OAC-signed body header a forged form can't supply.
 app.get("/auth/login", async (c) => {
   const invite = c.req.query("invite");
+  if (!invite) return c.html(loginPage(null, "Missing invite token."), 400);
+  const userId = await getUserIdByInviteHash(hashInviteToken(invite));
+  const user = userId ? await getUser(userId) : null;
+  if (!user) return c.html(loginPage(null, "This invite link is invalid or expired."), 403);
+  c.header("Referrer-Policy", "no-referrer");
+  return c.html(loginPage(user.name, null));
+});
+
+app.post("/auth/login", async (c) => {
+  const body = await c.req.json<{ invite?: unknown }>().catch(() => null);
+  const invite = typeof body?.invite === "string" ? body.invite : "";
   if (!invite) return c.json({ error: "missing invite token" }, 400);
   const userId = await getUserIdByInviteHash(hashInviteToken(invite));
-  if (!userId) return c.json({ error: "invalid invite" }, 403);
-  const user = await getUser(userId);
-  if (!user) return c.json({ error: "invalid invite" }, 403);
+  const user = userId ? await getUser(userId) : null;
+  if (!userId || !user) return c.json({ error: "invalid invite" }, 403);
   c.header("Set-Cookie", await issueSessionCookie(userId));
-  return c.redirect("/");
+  return c.json({ ok: true });
 });
 
 // ── Extension API (bearer token, not session — the extension's service

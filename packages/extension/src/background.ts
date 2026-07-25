@@ -24,6 +24,11 @@ interface SnapshotMessage {
   picks: SnapshotPick[];
 }
 
+interface WarnMessage {
+  kind: "warn";
+  text: string;
+}
+
 // Latest snapshot to push; overwritten by each newer one (they're cumulative).
 let latest: SnapshotMessage | null = null;
 let pushTimer: ReturnType<typeof setTimeout> | undefined;
@@ -80,7 +85,11 @@ async function setBadge(text: string, color: string, title: string): Promise<voi
   }
 }
 
-chrome.runtime.onMessage.addListener((message: SnapshotMessage) => {
+chrome.runtime.onMessage.addListener((message: SnapshotMessage | WarnMessage) => {
+  if (message?.kind === "warn") {
+    void setBadge("?", "#b9770e", message.text);
+    return;
+  }
   if (message?.kind !== "snapshot") return;
   latest = message;
   schedulePush();

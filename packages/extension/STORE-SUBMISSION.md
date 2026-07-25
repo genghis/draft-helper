@@ -88,9 +88,9 @@ exists.
 
    > This extension mirrors picks from your online fantasy football draft room
    > onto your board in the Draft Helper web app (draft.clanseafox.com). The app
-   > uses one-click invite login.
+   > uses invite-link login (no password) — open the link and click "Continue".
    >
-   > Test login (no password): &lt;PASTE INVITE LINK&gt;
+   > Test login: &lt;PASTE INVITE LINK&gt;
    >
    > To verify the extension:
    > 1. Install it.
