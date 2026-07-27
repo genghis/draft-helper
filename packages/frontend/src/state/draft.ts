@@ -7,10 +7,12 @@ const POLL_MS = 5000;
 interface Options {
   /** Refetch every few seconds while the tab is visible (draft-day mode). */
   poll?: boolean;
+  /** Skip the initial fetch and the poll while false (e.g. not signed in yet). */
+  enabled?: boolean;
 }
 
 /** The user's picks (their one implicit draft), with optimistic updates. */
-export function useDraft({ poll = false }: Options = {}) {
+export function useDraft({ poll = false, enabled = true }: Options = {}) {
   const [picks, setPicks] = useState<Map<string, Pick>>(new Map());
   const [sync, setSync] = useState<DraftSync>({ lastPushAt: null });
   // Player ids this session marked, most recent last; undoLast pops it.
@@ -38,11 +40,11 @@ export function useDraft({ poll = false }: Options = {}) {
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (enabled) void refresh();
+  }, [enabled, refresh]);
 
   useEffect(() => {
-    if (!poll) return;
+    if (!poll || !enabled) return;
     const tick = () => {
       if (document.visibilityState === "visible") void refresh();
     };
@@ -96,3 +98,5 @@ export function useDraft({ poll = false }: Options = {}) {
 
   return { picks, sync, mark, unmark, undoLast, lastMarked, refresh, reset };
 }
+
+export type DraftController = ReturnType<typeof useDraft>;

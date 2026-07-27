@@ -3,6 +3,7 @@ export * from "./normalize.js";
 export * from "./search.js";
 export * from "./espnPicks.js";
 export * from "./consensus.js";
+export * from "./handcuff.js";
 export * from "./adp.js";
 export * from "./tiers.js";
 export * from "./parse/borischen.js";

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Placement } from "@drafthelper/shared";
+import type { BoardLayout, Placement } from "@drafthelper/shared";
 import { api, ApiError } from "../api/client";
 
 const SAVE_DEBOUNCE_MS = 800;
@@ -12,7 +12,8 @@ const SAVE_DEBOUNCE_MS = 800;
 export function useLayoutSaver(
   boardId: string,
   initialVersion: number,
-  onConflict: () => void
+  onConflict: () => void,
+  onSaved?: (layout: BoardLayout) => void
 ) {
   const version = useRef(initialVersion);
   const pending = useRef<Record<string, Placement> | null>(null);
@@ -41,6 +42,7 @@ export function useLayoutSaver(
             body: { placements, version: version.current },
           });
           version.current = res.version;
+          onSaved?.({ placements, version: res.version });
         } catch (err) {
           if (err instanceof ApiError && err.status === 409) {
             pending.current = null;
@@ -54,7 +56,7 @@ export function useLayoutSaver(
       running.current = false;
       setSaving(false);
     }
-  }, [boardId, onConflict]);
+  }, [boardId, onConflict, onSaved]);
 
   const save = useCallback(
     (placements: Record<string, Placement>) => {

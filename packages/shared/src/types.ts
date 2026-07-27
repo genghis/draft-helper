@@ -75,6 +75,35 @@ export interface Source {
   entries: RankedPlayer[];
 }
 
+/** Fixed palette for tag badges — colors map to CSS classes, not a free picker. */
+export const TAG_COLORS = ["red", "amber", "green", "blue", "purple", "gray"] as const;
+export type TagColor = (typeof TAG_COLORS)[number];
+
+/** A user-defined, editable set of players (e.g. "Sleepers", "My guys"). */
+export interface TagMeta {
+  id: string;
+  ownerId: string;
+  label: string;
+  color: TagColor;
+  playerCount: number;
+  createdAt: string;
+  updatedAt: string;
+  /** Optimistic-concurrency version; increments on every save. */
+  version: number;
+  /** Marks the single system-maintained handcuff tag; absent on ordinary tags. */
+  autoManaged?: "handcuff";
+}
+
+export interface Tag {
+  meta: TagMeta;
+  /** Membership only — no ranks/tiers, unlike Sources. */
+  playerIds: string[];
+  /** Subset of playerIds the handcuff algorithm added; safe to retract later. */
+  autoAddedIds?: string[];
+  /** Qualifying ids the user manually removed; never auto-re-added. */
+  autoExcludedIds?: string[];
+}
+
 /** Per-player consensus agreement, captured when a consensus sorting is seeded. */
 export interface PlayerAgreement {
   /** How many of the seed sources ranked this player. */

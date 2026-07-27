@@ -1,6 +1,7 @@
-import type { BoardLayout, BoardMeta, Pick, Player } from "@drafthelper/shared";
+import type { BoardLayout, BoardMeta, Pick, Player, TagMeta } from "@drafthelper/shared";
 import { bestAvailable, currentTierScarcity, primaryAdp } from "@drafthelper/shared";
 import type { AdpLookup } from "../state/adp";
+import { TagBadges } from "../components/TagBadges";
 import "./BestAvailableRail.css";
 
 interface Props {
@@ -8,11 +9,12 @@ interface Props {
   layouts: Map<string, BoardLayout>;
   playersById: Map<string, Player>;
   adp: AdpLookup;
+  tagsByPlayer?: Map<string, TagMeta[]>;
   picks: Map<string, Pick>;
 }
 
 /** Per-position card: current tier scarcity + top remaining players with ADP. */
-export function BestAvailableRail({ boards, layouts, playersById, adp, picks }: Props) {
+export function BestAvailableRail({ boards, layouts, playersById, adp, tagsByPlayer, picks }: Props) {
   const picked = new Set(picks.keys());
   return (
     <div className="rail">
@@ -48,6 +50,7 @@ export function BestAvailableRail({ boards, layouts, playersById, adp, picks }: 
                         {Math.round(marketAdp)}
                       </span>
                     )}
+                    <TagBadges tags={tagsByPlayer?.get(id)} />
                   </li>
                 );
               })}

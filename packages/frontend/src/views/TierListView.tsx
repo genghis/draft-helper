@@ -5,9 +5,11 @@ import type {
   BoardMeta,
   Pick,
   Player,
+  TagMeta,
 } from "@drafthelper/shared";
 import { adpDivergence, adpValue, boardAdpRanks, highDisagreementIds, primaryAdp, projectBands } from "@drafthelper/shared";
 import type { AdpLookup } from "../state/adp";
+import { TagBadges } from "../components/TagBadges";
 import "./TierListView.css";
 
 /** Gap (in ADP picks) at which the two markets are called "split". */
@@ -21,6 +23,7 @@ interface Props {
   agreement?: BoardAgreement;
   playersById: Map<string, Player>;
   adp: AdpLookup;
+  tagsByPlayer?: Map<string, TagMeta[]>;
   picks: Map<string, Pick>;
   onMark: (playerId: string, mine: boolean) => void;
   onUnmark: (playerId: string) => void;
@@ -32,6 +35,7 @@ export function TierListView({
   agreement,
   playersById,
   adp,
+  tagsByPlayer,
   picks,
   onMark,
   onUnmark,
@@ -117,6 +121,7 @@ export function TierListView({
                         split={splitIds.has(id)}
                       />
                     )}
+                    {!gone && <TagBadges tags={tagsByPlayer?.get(id)} />}
                     {gone && pick.mine && <span className="tier-mine-tag">my pick</span>}
                     {gone && pick.source === "espn" && (
                       <span className="tier-espn-tag">espn</span>

@@ -8,9 +8,10 @@ import type {
   ScoringFormat,
   SeedTool,
   SessionUser,
+  TagColor,
   TierBand,
 } from "@drafthelper/shared";
-import { mapEspnPicks } from "@drafthelper/shared";
+import { mapEspnPicks, TAG_COLORS } from "@drafthelper/shared";
 import type { ExtPicksRequest } from "@drafthelper/shared";
 import {
   createBoard,
@@ -40,6 +41,7 @@ import {
   getSource,
   listSources,
 } from "./db/sources.js";
+import { createTag, deleteTag, getTag, listTags, updateTag } from "./db/tags.js";
 import {
   createUser,
   getUser,
@@ -56,6 +58,9 @@ const POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DST", "FLX", "OVERALL"]
 const SCORINGS = new Set(["STD", "HALF", "PPR"]);
 const SEED_TOOLS = new Set(["single", "consensus"]);
 const MAX_SOURCE_ENTRIES = 1000;
+const MAX_TAG_PLAYERS = 300;
+const MAX_ID_LENGTH = 64;
+const TAG_COLOR_SET = new Set<string>(TAG_COLORS);
 
 const MAX_PLACEMENTS = 1000;
 
@@ -420,6 +425,171 @@ app.delete("/sources/:id", async (c) => {
     return c.json({ error: "not found" }, 404);
   }
   await deleteSource(c.req.param("id"));
+  return c.json({ ok: true });
+});
+
+// ── Tags (editable player membership sets — sleepers, my guys, etc.) ──
+app.get("/tags", async (c) => c.json(await listTags(c.get("user").id)));
+
+function validateLabel(v: unknown): string | null {
+  const label = typeof v === "string" ? v.trim() : "";
+  return label && label.length <= 80 ? label : null;
+}
+
+function validateColor(v: unknown): TagColor | null {
+  return typeof v === "string" && TAG_COLOR_SET.has(v) ? (v as TagColor) : null;
+}
+
+function validPlayerIds(v: unknown): v is string[] {
+  return (
+    Array.isArray(v) &&
+    v.length > 0 &&
+    v.length <= MAX_TAG_PLAYERS &&
+    v.every((id) => typeof id === "string" && id.length <= MAX_ID_LENGTH)
+  );
+}
+
+/** Like validPlayerIds but allows empty — needed for the auto-managed handcuff
+ * tag, which can legitimately have zero members after retractions/exclusions. */
+function isStringArray(v: unknown): v is string[] {
+  return (
+    Array.isArray(v) &&
+    v.length <= MAX_TAG_PLAYERS &&
+    v.every((id) => typeof id === "string" && id.length <= MAX_ID_LENGTH)
+  );
+}
+
+/** At most one tag per owner may be the auto-managed handcuff tag. */
+async function handcuffTagConflict(ownerId: string, excludeTagId?: string): Promise<boolean> {
+  const tags = await listTags(ownerId);
+  return tags.some((t) => t.autoManaged === "handcuff" && t.id !== excludeTagId);
+}
+
+app.post("/tags", async (c) => {
+  const body = await c.req
+    .json<{
+      label?: unknown;
+      color?: unknown;
+      playerIds?: unknown;
+      autoManaged?: unknown;
+      autoAddedIds?: unknown;
+      autoExcludedIds?: unknown;
+    }>()
+    .catch(() => null);
+  const label = validateLabel(body?.label);
+  const color = validateColor(body?.color);
+  const playerIds = body?.playerIds;
+  if (!label || !color || !validPlayerIds(playerIds)) {
+    return c.json({ error: "invalid tag" }, 400);
+  }
+  if (body?.autoManaged !== undefined && body.autoManaged !== "handcuff") {
+    return c.json({ error: "invalid autoManaged" }, 400);
+  }
+  if (body?.autoAddedIds !== undefined && !isStringArray(body.autoAddedIds)) {
+    return c.json({ error: "invalid autoAddedIds" }, 400);
+  }
+  if (body?.autoExcludedIds !== undefined && !isStringArray(body.autoExcludedIds)) {
+    return c.json({ error: "invalid autoExcludedIds" }, 400);
+  }
+  if (body?.autoManaged === "handcuff" && (await handcuffTagConflict(c.get("user").id))) {
+    return c.json({ error: "a handcuff tag already exists" }, 400);
+  }
+  const meta = await createTag(c.get("user").id, {
+    label,
+    color,
+    playerIds,
+    ...(body?.autoManaged !== undefined ? { autoManaged: body.autoManaged as "handcuff" } : {}),
+    ...(body?.autoAddedIds !== undefined ? { autoAddedIds: body.autoAddedIds as string[] } : {}),
+    ...(body?.autoExcludedIds !== undefined
+      ? { autoExcludedIds: body.autoExcludedIds as string[] }
+      : {}),
+  });
+  return c.json(meta, 201);
+});
+
+app.get("/tags/:id", async (c) => {
+  const tag = await getTag(c.req.param("id"));
+  if (!tag || tag.meta.ownerId !== c.get("user").id) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return c.json(tag);
+});
+
+app.put("/tags/:id", async (c) => {
+  const tag = await getTag(c.req.param("id"));
+  if (!tag || tag.meta.ownerId !== c.get("user").id) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const body = await c.req
+    .json<{
+      label?: unknown;
+      color?: unknown;
+      playerIds?: unknown;
+      autoManaged?: unknown;
+      autoAddedIds?: unknown;
+      autoExcludedIds?: unknown;
+      version?: unknown;
+    }>()
+    .catch(() => null);
+  if (typeof body?.version !== "number") {
+    return c.json({ error: "version required" }, 400);
+  }
+  const changes: {
+    label?: string;
+    color?: TagColor;
+    playerIds?: string[];
+    autoManaged?: "handcuff";
+    autoAddedIds?: string[];
+    autoExcludedIds?: string[];
+  } = {};
+  if (body?.label !== undefined) {
+    const label = validateLabel(body.label);
+    if (!label) return c.json({ error: "invalid label" }, 400);
+    changes.label = label;
+  }
+  if (body?.color !== undefined) {
+    const color = validateColor(body.color);
+    if (!color) return c.json({ error: "invalid color" }, 400);
+    changes.color = color;
+  }
+  if (body?.autoManaged !== undefined) {
+    if (body.autoManaged !== "handcuff") return c.json({ error: "invalid autoManaged" }, 400);
+    if (await handcuffTagConflict(c.get("user").id, tag.meta.id)) {
+      return c.json({ error: "a handcuff tag already exists" }, 400);
+    }
+    changes.autoManaged = body.autoManaged;
+  }
+  if (body?.playerIds !== undefined) {
+    // Unlike POST, PUT allows empty — but only for the auto-managed handcuff
+    // tag, which can legitimately shrink to zero members.
+    if (!isStringArray(body.playerIds)) return c.json({ error: "invalid playerIds" }, 400);
+    const resultingAutoManaged = changes.autoManaged ?? tag.meta.autoManaged;
+    if (body.playerIds.length === 0 && resultingAutoManaged !== "handcuff") {
+      return c.json({ error: "playerIds cannot be empty" }, 400);
+    }
+    changes.playerIds = body.playerIds;
+  }
+  if (body?.autoAddedIds !== undefined) {
+    if (!isStringArray(body.autoAddedIds)) return c.json({ error: "invalid autoAddedIds" }, 400);
+    changes.autoAddedIds = body.autoAddedIds;
+  }
+  if (body?.autoExcludedIds !== undefined) {
+    if (!isStringArray(body.autoExcludedIds)) {
+      return c.json({ error: "invalid autoExcludedIds" }, 400);
+    }
+    changes.autoExcludedIds = body.autoExcludedIds;
+  }
+  const meta = await updateTag(c.req.param("id"), changes, body.version);
+  if (!meta) return c.json({ error: "version conflict" }, 409);
+  return c.json(meta);
+});
+
+app.delete("/tags/:id", async (c) => {
+  const tag = await getTag(c.req.param("id"));
+  if (!tag || tag.meta.ownerId !== c.get("user").id) {
+    return c.json({ error: "not found" }, 404);
+  }
+  await deleteTag(c.req.param("id"));
   return c.json({ ok: true });
 });
 

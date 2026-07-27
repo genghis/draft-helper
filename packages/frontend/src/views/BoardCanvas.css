@@ -99,3 +99,8 @@
   border-color: #b9770e;
   box-shadow: 0 0 0 1px color-mix(in srgb, #b9770e 55%, transparent);
 }
+
+.canvas-chip .tag-dots {
+  margin-left: 4px;
+  vertical-align: middle;
+}

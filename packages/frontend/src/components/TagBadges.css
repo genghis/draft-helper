@@ -1,0 +1,73 @@
+.tag-badges {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tag-badge {
+  font-size: 0.75em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.tag-dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.tag-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.tag-color-red {
+  color: #c0392b;
+  background: color-mix(in srgb, #c0392b 14%, transparent);
+}
+.tag-dot.tag-color-red {
+  background: #c0392b;
+}
+
+.tag-color-amber {
+  color: #b9770e;
+  background: color-mix(in srgb, #f1c40f 16%, transparent);
+}
+.tag-dot.tag-color-amber {
+  background: #f1c40f;
+}
+
+.tag-color-green {
+  color: #27ae60;
+  background: color-mix(in srgb, #27ae60 14%, transparent);
+}
+.tag-dot.tag-color-green {
+  background: #27ae60;
+}
+
+.tag-color-blue {
+  color: #2980b9;
+  background: color-mix(in srgb, #2980b9 14%, transparent);
+}
+.tag-dot.tag-color-blue {
+  background: #2980b9;
+}
+
+.tag-color-purple {
+  color: #8e7cc3;
+  background: color-mix(in srgb, #8e7cc3 16%, transparent);
+}
+.tag-dot.tag-color-purple {
+  background: #8e7cc3;
+}
+
+.tag-color-gray {
+  color: #6b7280;
+  background: color-mix(in srgb, #9aa0a6 18%, transparent);
+}
+.tag-dot.tag-color-gray {
+  background: #9aa0a6;
+}

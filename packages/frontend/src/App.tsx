@@ -1,27 +1,49 @@
 import { useCallback, useEffect, useState } from "react";
-import type { BoardMeta, SessionUser, SourceMeta } from "@drafthelper/shared";
+import type { BoardMeta, SessionUser, SourceMeta, Tag } from "@drafthelper/shared";
 import { api, ApiError } from "./api/client";
 import { useAdp } from "./state/adp";
+import { useAllBoardLayouts } from "./state/boardLayouts";
+import { useDraft } from "./state/draft";
+import { useHandcuffAutoTag } from "./state/useHandcuffAutoTag";
 import { usePlayers } from "./state/players";
+import { useTags } from "./state/tags";
 import { AdminPanel } from "./views/AdminPanel";
 import { BoardsView } from "./views/BoardsView";
 import { DraftDayView } from "./views/DraftDayView";
 import { ImportView } from "./views/ImportView";
 import { SettingsView } from "./views/SettingsView";
 import { SourcesView } from "./views/SourcesView";
+import { TagEditorView } from "./views/TagEditorView";
+import { TagsView } from "./views/TagsView";
+import "./views/DraftDayView.css";
 import "./App.css";
 
 type AuthState = { status: "loading" } | { status: "out" } | { status: "in"; user: SessionUser };
 
-type View = "sortings" | "sources" | "import" | "draft" | "settings";
+type View = "sortings" | "sources" | "import" | "draft" | "settings" | "tags" | "tag-editor";
 
 export function App() {
   const [auth, setAuth] = useState<AuthState>({ status: "loading" });
   const [boards, setBoards] = useState<BoardMeta[]>([]);
   const [sources, setSources] = useState<SourceMeta[]>([]);
   const [view, setView] = useState<View>("sortings");
+  const [editingTag, setEditingTag] = useState<Tag | undefined>(undefined);
   const { players, byId, error: playersError } = usePlayers();
   const adp = useAdp();
+  const signedIn = auth.status === "in";
+  const tags = useTags(signedIn);
+  const draft = useDraft({ poll: true, enabled: signedIn });
+  const boardLayouts = useAllBoardLayouts(boards);
+  const handcuff = useHandcuffAutoTag({
+    enabled: signedIn,
+    picks: draft.picks,
+    players: players ?? [],
+    playersById: byId,
+    boards,
+    layouts: boardLayouts.layouts,
+    adp,
+    tags,
+  });
 
   useEffect(() => {
     api<SessionUser>("/me")
@@ -32,7 +54,6 @@ export function App() {
       });
   }, []);
 
-  const signedIn = auth.status === "in";
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
     if (signedIn) {
@@ -50,6 +71,16 @@ export function App() {
     setBoards((prev) => [...prev, meta]);
     setView("sortings");
   }, []);
+
+  const onTagSaved = useCallback(() => {
+    setEditingTag(undefined);
+    setView("tags");
+    void tags.refresh();
+  }, [tags]);
+
+  const onTagDeleted = useCallback(() => {
+    void tags.refresh();
+  }, [tags]);
 
   const navItem = (key: View, label: string) => (
     <button
@@ -69,6 +100,7 @@ export function App() {
           <nav className="app-nav">
             {navItem("sortings", "Sortings")}
             {navItem("sources", "Sources")}
+            {navItem("tags", "Tags")}
             {navItem("draft", "Draft day")}
             {navItem("settings", "Settings")}
           </nav>
@@ -94,8 +126,40 @@ export function App() {
               onImport={() => setView("import")}
               onDeleted={(id) => setSources((prev) => prev.filter((s) => s.id !== id))}
             />
+          ) : view === "tag-editor" && players ? (
+            <TagEditorView
+              players={players}
+              playersById={byId}
+              existingTag={editingTag}
+              onSaved={onTagSaved}
+              onCancel={() => {
+                setEditingTag(undefined);
+                setView("tags");
+              }}
+            />
+          ) : view === "tags" ? (
+            <TagsView
+              tags={tags.metas}
+              onNew={() => {
+                setEditingTag(undefined);
+                setView("tag-editor");
+              }}
+              onEdit={(meta) => {
+                setEditingTag(tags.tags.find((t) => t.meta.id === meta.id));
+                setView("tag-editor");
+              }}
+              onDeleted={onTagDeleted}
+            />
           ) : view === "draft" && players ? (
-            <DraftDayView boards={boards} players={players} playersById={byId} adp={adp} />
+            <DraftDayView
+              boards={boards}
+              players={players}
+              playersById={byId}
+              adp={adp}
+              tagsByPlayer={tags.tagsByPlayer}
+              draft={draft}
+              layouts={boardLayouts.layouts}
+            />
           ) : view === "settings" ? (
             <SettingsView />
           ) : (
@@ -104,9 +168,27 @@ export function App() {
               sources={sources}
               playersById={byId}
               adp={adp}
+              tagsByPlayer={tags.tagsByPlayer}
+              draft={draft}
+              onLayoutChanged={boardLayouts.setLayout}
               onSortingCreated={onSortingCreated}
               onBoardDeleted={(id) => setBoards((prev) => prev.filter((b) => b.id !== id))}
             />
+          )}
+          {handcuff.toast && (
+            <div className="draft-toast handcuff-toast" role="status">
+              <span>
+                Auto-tagged <strong>{handcuff.toast.addedNames.join(", ")}</strong> as
+                handcuff{handcuff.toast.addedNames.length > 1 ? "s" : ""} for{" "}
+                {handcuff.toast.leadName}
+              </span>
+              <button type="button" onClick={() => void handcuff.undo()}>
+                Undo
+              </button>
+              <button type="button" className="secondary" onClick={handcuff.dismissToast}>
+                Dismiss
+              </button>
+            </div>
           )}
           {auth.user.admin && <AdminPanel />}
         </>

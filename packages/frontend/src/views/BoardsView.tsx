@@ -5,10 +5,11 @@ import type {
   BoardMeta,
   Player,
   SourceMeta,
+  TagMeta,
 } from "@drafthelper/shared";
 import { api } from "../api/client";
 import type { AdpLookup } from "../state/adp";
-import { useDraft } from "../state/draft";
+import type { DraftController } from "../state/draft";
 import { BoardCanvas } from "./BoardCanvas";
 import { NewSortingModal } from "./NewSortingModal";
 import { TierListView } from "./TierListView";
@@ -19,6 +20,9 @@ interface Props {
   sources: SourceMeta[];
   playersById: Map<string, Player>;
   adp: AdpLookup;
+  tagsByPlayer: Map<string, TagMeta[]>;
+  draft: DraftController;
+  onLayoutChanged?: (boardId: string, layout: BoardLayout) => void;
   onSortingCreated: (board: BoardMeta) => void;
   onBoardDeleted: (id: string) => void;
 }
@@ -28,6 +32,9 @@ export function BoardsView({
   sources,
   playersById,
   adp,
+  tagsByPlayer,
+  draft,
+  onLayoutChanged,
   onSortingCreated,
   onBoardDeleted,
 }: Props) {
@@ -40,7 +47,6 @@ export function BoardsView({
   const [mode, setMode] = useState<"list" | "canvas">("list");
   const [conflictNotice, setConflictNotice] = useState(false);
   const [showNew, setShowNew] = useState(false);
-  const draft = useDraft();
 
   useEffect(() => {
     if (activeId === null && boards[0]) setActiveId(boards[0].id);
@@ -61,9 +67,12 @@ export function BoardsView({
     api<{ meta: BoardMeta; layout: BoardLayout; agreement?: BoardAgreement }>(
       `/boards/${activeId}`
     ).then((b) => {
-      if (seq === loadSeq.current) setBoard(b);
+      if (seq === loadSeq.current) {
+        setBoard(b);
+        onLayoutChanged?.(activeId, b.layout);
+      }
     });
-  }, [activeId]);
+  }, [activeId, onLayoutChanged]);
 
   useEffect(loadBoard, [loadBoard]);
 
@@ -175,6 +184,7 @@ export function BoardsView({
               agreement={board.agreement}
               playersById={playersById}
               adp={adp}
+              tagsByPlayer={tagsByPlayer}
               picks={draft.picks}
               onMark={draft.mark}
               onUnmark={draft.unmark}
@@ -188,9 +198,11 @@ export function BoardsView({
               layout={board.layout}
               agreement={board.agreement}
               playersById={playersById}
+              tagsByPlayer={tagsByPlayer}
               picks={draft.picks}
               onMetaChanged={(meta) => setBoard((prev) => (prev ? { ...prev, meta } : prev))}
               onConflict={onConflict}
+              onLayoutChanged={onLayoutChanged}
             />
           )}
         </>

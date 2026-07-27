@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { BoardLayout, BoardMeta, Pick, Player } from "@drafthelper/shared";
+import { useMemo, useRef, useState } from "react";
+import type { BoardLayout, BoardMeta, Pick, Player, TagMeta } from "@drafthelper/shared";
 import { searchPlayers } from "@drafthelper/shared";
-import { api } from "../api/client";
 import type { AdpLookup } from "../state/adp";
-import { useDraft } from "../state/draft";
+import type { DraftController } from "../state/draft";
 import { BestAvailableRail } from "./BestAvailableRail";
 import "./DraftDayView.css";
 
@@ -12,6 +11,9 @@ interface Props {
   players: Player[];
   playersById: Map<string, Player>;
   adp: AdpLookup;
+  tagsByPlayer?: Map<string, TagMeta[]>;
+  draft: DraftController;
+  layouts: Map<string, BoardLayout>;
 }
 
 interface Toast {
@@ -23,9 +25,15 @@ interface Toast {
 const TOAST_MS = 5000;
 const LOG_SIZE = 10;
 
-export function DraftDayView({ boards, players, playersById, adp }: Props) {
-  const draft = useDraft({ poll: true });
-  const [layouts, setLayouts] = useState<Map<string, BoardLayout>>(new Map());
+export function DraftDayView({
+  boards,
+  players,
+  playersById,
+  adp,
+  tagsByPlayer,
+  draft,
+  layouts,
+}: Props) {
   const [query, setQuery] = useState("");
   const [mineNext, setMineNext] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -34,22 +42,6 @@ export function DraftDayView({ boards, players, playersById, adp }: Props) {
   // Keyboard-first only where a hardware keyboard is likely; on touch the
   // constant refocus would keep popping the on-screen keyboard.
   const keyboardMode = useMemo(() => window.matchMedia("(hover: hover)").matches, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all(
-      boards.map((b) =>
-        api<{ meta: BoardMeta; layout: BoardLayout }>(`/boards/${b.id}`).then(
-          (r) => [b.id, r.layout] as const
-        )
-      )
-    ).then((entries) => {
-      if (!cancelled) setLayouts(new Map(entries));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [boards]);
 
   // Best board y per player, used to rank search hits toward ranked players.
   const rankById = useMemo(() => {
@@ -203,6 +195,7 @@ export function DraftDayView({ boards, players, playersById, adp }: Props) {
         layouts={layouts}
         playersById={playersById}
         adp={adp}
+        tagsByPlayer={tagsByPlayer}
         picks={draft.picks}
       />
 

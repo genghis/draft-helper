@@ -1,0 +1,37 @@
+.tags-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tags-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.tags-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tags-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.25rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.tags-row .tag-badge {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.tags-meta {
+  opacity: 0.6;
+  font-size: 0.85rem;
+}

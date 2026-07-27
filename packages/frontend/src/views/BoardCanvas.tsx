@@ -6,6 +6,7 @@ import type {
   Pick,
   Placement,
   Player,
+  TagMeta,
 } from "@drafthelper/shared";
 import {
   highDisagreementIds,
@@ -15,6 +16,7 @@ import {
 } from "@drafthelper/shared";
 import { api } from "../api/client";
 import { useLayoutSaver } from "../state/layoutSaver";
+import { TagDots } from "../components/TagBadges";
 import "./BoardCanvas.css";
 
 interface Props {
@@ -22,9 +24,11 @@ interface Props {
   layout: BoardLayout;
   agreement?: BoardAgreement;
   playersById: Map<string, Player>;
+  tagsByPlayer?: Map<string, TagMeta[]>;
   picks: Map<string, Pick>;
   onMetaChanged: (meta: BoardMeta) => void;
   onConflict: () => void;
+  onLayoutChanged?: (boardId: string, layout: BoardLayout) => void;
 }
 
 /** Canvas x range; placements use these units directly. */
@@ -43,9 +47,11 @@ export function BoardCanvas({
   layout,
   agreement,
   playersById,
+  tagsByPlayer,
   picks,
   onMetaChanged,
   onConflict,
+  onLayoutChanged,
 }: Props) {
   const [placements, setPlacements] = useState(layout.placements);
   const [bands, setBands] = useState(meta.bands);
@@ -53,7 +59,12 @@ export function BoardCanvas({
     () => (agreement ? highDisagreementIds(agreement) : new Set<string>()),
     [agreement]
   );
-  const { save, saving } = useLayoutSaver(meta.id, layout.version, onConflict);
+  const { save, saving } = useLayoutSaver(
+    meta.id,
+    layout.version,
+    onConflict,
+    onLayoutChanged && ((next) => onLayoutChanged(meta.id, next))
+  );
   const surfaceRef = useRef<HTMLDivElement>(null);
   const drag = useRef<
     | { kind: "chip"; id: string }
@@ -186,6 +197,7 @@ export function BoardCanvas({
               title={playersById.get(id)?.name ?? id}
             >
               {playersById.get(id)?.name ?? id}
+              <TagDots tags={tagsByPlayer?.get(id)} />
             </button>
           );
         })}
