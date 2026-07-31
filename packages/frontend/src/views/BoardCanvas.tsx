@@ -71,6 +71,10 @@ export function BoardCanvas({
     | { kind: "boundary"; index: number }
     | null
   >(null);
+  // Offset between the pointer and the chip's placement at grab time, so a
+  // chip follows the cursor from wherever it was grabbed instead of its
+  // placement snapping to the cursor (which reads as a jump on drag start).
+  const chipGrabOffset = useRef<Placement>({ x: 0, y: 0 });
 
   const maxY = useMemo(() => {
     const ys = [
@@ -94,6 +98,10 @@ export function BoardCanvas({
 
   function onChipPointerDown(e: React.PointerEvent, id: string) {
     drag.current = { kind: "chip", id };
+    const point = toCanvas(e);
+    const current = placements[id];
+    chipGrabOffset.current =
+      point && current ? { x: point.x - current.x, y: point.y - current.y } : { x: 0, y: 0 };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }
 
@@ -110,7 +118,11 @@ export function BoardCanvas({
     if (active.kind === "chip") {
       // Compute next outside the updater — updaters must be pure (StrictMode
       // double-invokes them), and save() is a side effect.
-      const next = { ...placements, [active.id]: point };
+      const placement = {
+        x: point.x - chipGrabOffset.current.x,
+        y: point.y - chipGrabOffset.current.y,
+      };
+      const next = { ...placements, [active.id]: placement };
       setPlacements(next);
       save(next);
     } else {
