@@ -1,7 +1,7 @@
 .admin-panel {
-  margin-top: 2rem;
-  border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
-  padding-top: 1rem;
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1.25rem;
 }
 
 .admin-user-list {
@@ -27,12 +27,14 @@
 }
 
 .admin-badge {
-  font-size: 0.7rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0.1rem 0.4rem;
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 4px;
+  color: var(--brass);
+  background: color-mix(in srgb, var(--brass) 16%, transparent);
 }
 
 .admin-add-form {
@@ -43,8 +45,8 @@
 
 .admin-fresh-invite {
   padding: 0.75rem;
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-radius: 8px;
+  background: var(--surface-2);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -52,10 +54,11 @@
 }
 
 .admin-fresh-invite code {
+  font-family: "IBM Plex Mono", monospace;
   word-break: break-all;
   user-select: all;
 }
 
 .admin-error {
-  color: #c0392b;
+  color: var(--danger);
 }

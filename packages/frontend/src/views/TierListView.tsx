@@ -86,7 +86,7 @@ export function TierListView({
                   .filter(Boolean)
                   .join(" ");
                 return (
-                  <li key={id} className={rowClass}>
+                  <li key={id} className={rowClass} data-position={player?.position}>
                     <button
                       type="button"
                       className="tier-row-main"
@@ -111,6 +111,7 @@ export function TierListView({
                         onClick={() => onMark(id, true)}
                         title="Drafted by me"
                       >
+                        <span className="pin" aria-hidden="true" />
                         Mine
                       </button>
                     )}
@@ -122,7 +123,12 @@ export function TierListView({
                       />
                     )}
                     {!gone && <TagBadges tags={tagsByPlayer?.get(id)} />}
-                    {gone && pick.mine && <span className="tier-mine-tag">my pick</span>}
+                    {gone && pick.mine && (
+                      <span className="tier-mine-tag">
+                        <span className="pin" aria-hidden="true" />
+                        my pick
+                      </span>
+                    )}
                     {gone && pick.source === "espn" && (
                       <span className="tier-espn-tag">espn</span>
                     )}

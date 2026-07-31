@@ -10,14 +10,16 @@
 }
 
 .canvas-saving {
+  font-family: "IBM Plex Mono", monospace;
   font-size: 0.8rem;
 }
 
 .canvas-surface {
   position: relative;
   width: 100%;
-  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
   overflow: hidden;
   touch-action: none; /* pointer-event dragging owns touch gestures */
 }
@@ -31,18 +33,19 @@
 }
 
 .canvas-band-alt {
-  background: color-mix(in srgb, currentColor 5%, transparent);
+  background: var(--surface-2);
 }
 
 .canvas-band-label {
   position: absolute;
-  top: 0.15rem;
-  left: 0.4rem;
+  top: 0.2rem;
+  left: 0.5rem;
+  font-family: "Barlow Condensed", sans-serif;
   font-size: 0.7rem;
   font-weight: 700;
-  opacity: 0.45;
+  color: var(--ink-dim);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
 .canvas-boundary {
@@ -59,7 +62,7 @@
   content: "";
   display: block;
   margin-top: 4px;
-  border-top: 2px dashed color-mix(in srgb, currentColor 40%, transparent);
+  border-top: 1px dashed color-mix(in srgb, var(--ink) 30%, transparent);
 }
 
 .canvas-chip {
@@ -69,15 +72,44 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-weight: 600;
   font-size: 0.78rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
-  background: canvas;
-  color: inherit;
+  padding: 0.18rem 0.55rem;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--pos, var(--ink)) 45%, transparent);
+  background: var(--surface-2);
+  color: var(--ink);
+  box-shadow: var(--shadow);
   cursor: grab;
   z-index: 1;
+}
+
+.canvas-chip[data-position="QB"] {
+  --pos: var(--pos-qb);
+}
+.canvas-chip[data-position="RB"] {
+  --pos: var(--pos-rb);
+}
+.canvas-chip[data-position="WR"] {
+  --pos: var(--pos-wr);
+}
+.canvas-chip[data-position="TE"] {
+  --pos: var(--pos-te);
+}
+.canvas-chip[data-position="K"] {
+  --pos: var(--pos-k);
+}
+.canvas-chip[data-position="DST"] {
+  --pos: var(--pos-dst);
+}
+
+.canvas-chip .pin {
+  width: 0.5em;
+  height: 0.5em;
 }
 
 .canvas-chip:active {
@@ -91,16 +123,18 @@
 }
 
 .canvas-chip-mine {
-  border-color: #27ae60;
-  background: color-mix(in srgb, #2ecc71 18%, canvas);
+  border-color: var(--brass);
+  background: color-mix(in srgb, var(--brass) 16%, var(--surface-2));
 }
 
 .canvas-chip-split {
-  border-color: #b9770e;
-  box-shadow: 0 0 0 1px color-mix(in srgb, #b9770e 55%, transparent);
+  border-color: var(--warn);
+  box-shadow:
+    var(--shadow),
+    0 0 0 1px color-mix(in srgb, var(--warn) 55%, transparent);
 }
 
 .canvas-chip .tag-dots {
-  margin-left: 4px;
+  margin-left: 2px;
   vertical-align: middle;
 }

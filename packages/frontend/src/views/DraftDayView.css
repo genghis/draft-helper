@@ -6,6 +6,7 @@
 
 .draft-sync {
   align-self: flex-start;
+  font-family: "IBM Plex Sans", sans-serif;
   font-size: 0.8rem;
   font-weight: 600;
   padding: 0.25rem 0.7rem;
@@ -14,26 +15,26 @@
 }
 
 .draft-sync-off {
-  opacity: 0.6;
-  border-color: color-mix(in srgb, currentColor 30%, transparent);
+  color: var(--ink-dim);
+  border-color: var(--line);
 }
 
 .draft-sync-live {
-  color: #27ae60;
-  border-color: #27ae60;
-  background: color-mix(in srgb, #2ecc71 12%, transparent);
+  color: var(--pos-rb);
+  border-color: color-mix(in srgb, var(--pos-rb) 50%, transparent);
+  background: color-mix(in srgb, var(--pos-rb) 14%, transparent);
 }
 
 .draft-sync-stale {
-  color: #b9770e;
-  border-color: #b9770e;
-  background: color-mix(in srgb, #f1c40f 12%, transparent);
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 50%, transparent);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
 }
 
 .draft-sync-dead {
-  color: #c0392b;
-  border-color: #c0392b;
-  background: color-mix(in srgb, #c0392b 10%, transparent);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
 }
 
 .draft-search-bar {
@@ -41,7 +42,7 @@
   gap: 0.5rem;
   position: sticky;
   top: 0;
-  background: canvas;
+  background: var(--bg);
   padding: 0.5rem 0;
   z-index: 2;
 }
@@ -58,7 +59,8 @@
 }
 
 .draft-mine-toggle-on {
-  background: color-mix(in srgb, #2ecc71 30%, transparent);
+  background: var(--brass);
+  color: var(--brass-ink);
   font-weight: 700;
 }
 
@@ -66,15 +68,16 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
-  border-radius: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
   overflow: hidden;
+  background: var(--surface);
 }
 
 .draft-result {
   display: flex;
   align-items: center;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-bottom: 1px solid var(--line);
 }
 
 .draft-result:last-child {
@@ -82,7 +85,7 @@
 }
 
 .draft-result-top {
-  background: color-mix(in srgb, currentColor 8%, transparent);
+  background: var(--surface-2);
   font-weight: 700;
 }
 
@@ -93,6 +96,7 @@
   gap: 0.75rem;
   background: none;
   border: none;
+  border-radius: 0;
   font: inherit;
   color: inherit;
   text-align: left;
@@ -101,14 +105,19 @@
   min-height: 44px;
 }
 
+.draft-result-main:hover {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
 .draft-result-meta {
-  opacity: 0.55;
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--ink-dim);
   font-size: 0.85rem;
 }
 
 .draft-result-kbd {
   margin-left: auto;
-  opacity: 0.5;
+  color: var(--ink-dim);
   font-size: 0.85rem;
 }
 
@@ -117,10 +126,16 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.6rem 0.9rem;
-  border-radius: 6px;
-  background: color-mix(in srgb, #2ecc71 18%, canvas);
-  border: 1px solid color-mix(in srgb, #2ecc71 45%, transparent);
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brass);
+}
+
+.draft-toast b,
+.draft-toast strong {
+  color: var(--brass);
 }
 
 .draft-log ul {
@@ -133,7 +148,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-family: "Barlow Condensed", sans-serif;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.95rem;
   padding: 0.4rem 0;
 }
 
@@ -142,7 +161,7 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.35rem 0;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-bottom: 1px solid var(--line);
 }
 
 .draft-log-name {
@@ -150,16 +169,17 @@
 }
 
 .draft-source {
-  font-size: 0.7rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
-  opacity: 0.75;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
 }
 
 .draft-source-espn {
-  color: #2980b9;
-  border-color: #2980b9;
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 55%, transparent);
 }

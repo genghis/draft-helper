@@ -24,7 +24,7 @@ export function BestAvailableRail({ boards, layouts, playersById, adp, tagsByPla
         const scarcity = currentTierScarcity(layout.placements, board.bands, picked);
         const top = bestAvailable(layout.placements, picked);
         return (
-          <section key={board.id} className="rail-card">
+          <section key={board.id} className="rail-card" data-position={board.position}>
             <header className="rail-card-header">
               <span className="rail-position">{board.position}</span>
               {scarcity ? (

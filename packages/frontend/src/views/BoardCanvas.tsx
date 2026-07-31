@@ -195,7 +195,9 @@ export function BoardCanvas({
               }}
               onPointerDown={(e) => onChipPointerDown(e, id)}
               title={playersById.get(id)?.name ?? id}
+              data-position={playersById.get(id)?.position}
             >
+              {pick?.mine && <span className="pin" aria-hidden="true" />}
               {playersById.get(id)?.name ?? id}
               <TagDots tags={tagsByPlayer?.get(id)} />
             </button>

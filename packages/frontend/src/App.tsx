@@ -95,7 +95,10 @@ export function App() {
   return (
     <main className="app-shell">
       <header className="app-header">
-        <h1>Draft Helper</h1>
+        <h1 className="wordmark">
+          <span className="pin" aria-hidden="true" />
+          Draft Helper
+        </h1>
         {signedIn && (
           <nav className="app-nav">
             {navItem("sortings", "Sortings")}

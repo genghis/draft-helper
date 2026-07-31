@@ -5,8 +5,10 @@
 }
 
 .tag-badge {
-  font-size: 0.75em;
-  padding: 1px 6px;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 0.72em;
+  font-weight: 600;
+  padding: 1px 7px;
   border-radius: 999px;
   line-height: 1.5;
   white-space: nowrap;
@@ -25,49 +27,49 @@
 }
 
 .tag-color-red {
-  color: #c0392b;
-  background: color-mix(in srgb, #c0392b 14%, transparent);
+  color: var(--tag-red);
+  background: color-mix(in srgb, var(--tag-red) 18%, transparent);
 }
 .tag-dot.tag-color-red {
-  background: #c0392b;
+  background: var(--tag-red);
 }
 
 .tag-color-amber {
-  color: #b9770e;
-  background: color-mix(in srgb, #f1c40f 16%, transparent);
+  color: var(--tag-amber);
+  background: color-mix(in srgb, var(--tag-amber) 18%, transparent);
 }
 .tag-dot.tag-color-amber {
-  background: #f1c40f;
+  background: var(--tag-amber);
 }
 
 .tag-color-green {
-  color: #27ae60;
-  background: color-mix(in srgb, #27ae60 14%, transparent);
+  color: var(--tag-green);
+  background: color-mix(in srgb, var(--tag-green) 18%, transparent);
 }
 .tag-dot.tag-color-green {
-  background: #27ae60;
+  background: var(--tag-green);
 }
 
 .tag-color-blue {
-  color: #2980b9;
-  background: color-mix(in srgb, #2980b9 14%, transparent);
+  color: var(--tag-blue);
+  background: color-mix(in srgb, var(--tag-blue) 18%, transparent);
 }
 .tag-dot.tag-color-blue {
-  background: #2980b9;
+  background: var(--tag-blue);
 }
 
 .tag-color-purple {
-  color: #8e7cc3;
-  background: color-mix(in srgb, #8e7cc3 16%, transparent);
+  color: var(--tag-purple);
+  background: color-mix(in srgb, var(--tag-purple) 18%, transparent);
 }
 .tag-dot.tag-color-purple {
-  background: #8e7cc3;
+  background: var(--tag-purple);
 }
 
 .tag-color-gray {
-  color: #6b7280;
-  background: color-mix(in srgb, #9aa0a6 18%, transparent);
+  color: var(--tag-gray);
+  background: color-mix(in srgb, var(--tag-gray) 18%, transparent);
 }
 .tag-dot.tag-color-gray {
-  background: #9aa0a6;
+  background: var(--tag-gray);
 }
