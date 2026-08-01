@@ -204,15 +204,23 @@ export async function updateBoardMeta(
         TableName: TABLE_NAME,
         Key: { pk: `BOARD#${boardId}`, sk: "META" },
         UpdateExpression: `SET ${sets.join(", ")}`,
+        // if_not_exists() is an UPDATE-expression function; DynamoDB rejects it
+        // in a ConditionExpression, whose function set is closed. So the
+        // "board predates versioning" case is expressed as the absence of the
+        // attribute rather than as a default value.
         ConditionExpression:
           expectedVersion === undefined
             ? "attribute_exists(pk)"
-            : "attribute_exists(pk) AND if_not_exists(version, :zero) = :expected",
+            : expectedVersion === 0
+              ? "attribute_exists(pk) AND attribute_not_exists(version)"
+              : "attribute_exists(pk) AND version = :expected",
         ...(changes.name !== undefined
           ? { ExpressionAttributeNames: { "#n": "name" } }
           : {}),
         ExpressionAttributeValues:
-          expectedVersion === undefined ? values : { ...values, ":expected": expectedVersion },
+          expectedVersion === undefined || expectedVersion === 0
+            ? values
+            : { ...values, ":expected": expectedVersion },
         ReturnValues: "ALL_NEW",
       })
     );
