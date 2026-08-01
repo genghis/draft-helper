@@ -119,6 +119,82 @@ export function moveBandBoundary(
   );
 }
 
+/** Auto-generated band labels; only these get renumbered when tiers change. */
+const AUTO_LABEL = /^Tier \d+$/;
+
+/**
+ * Renumbers auto-generated labels ("Tier 3") to match position, leaving any
+ * label the user renamed alone. Keeps numbering sensible after a split or
+ * merge without silently discarding a rename.
+ */
+function renumber(bands: TierBand[]): TierBand[] {
+  return bands.map((band, i) =>
+    AUTO_LABEL.test(band.label) ? { ...band, label: `Tier ${i + 1}` } : band
+  );
+}
+
+/**
+ * Splits bands[index] in two at y, so the players above and below that line
+ * fall into separate tiers. Nobody moves — a player's tier is just whichever
+ * band contains their y. Clamped so neither half drops below minHeight;
+ * returns the input unchanged when there isn't room to split.
+ */
+export function splitBand(
+  bands: TierBand[],
+  index: number,
+  y: number,
+  minHeight = RANK_SPACING
+): TierBand[] {
+  const band = bands[index];
+  if (!band) return bands;
+  if (band.y1 - band.y0 < 2 * minHeight) return bands;
+  const cut = Math.min(Math.max(y, band.y0 + minHeight), band.y1 - minHeight);
+  return renumber([
+    ...bands.slice(0, index),
+    { ...band, y1: cut },
+    { y0: cut, y1: band.y1, label: `Tier ${index + 2}` },
+    ...bands.slice(index + 1),
+  ]);
+}
+
+/** Height of a tier appended below the board — room to park a few players. */
+export const APPENDED_BAND_HEIGHT = RANK_SPACING * 8;
+
+/**
+ * Adds an empty tier below the last band, to drag players down into. Extends
+ * the board rather than subdividing it, which is why it isn't just a split.
+ */
+export function appendBand(bands: TierBand[]): TierBand[] {
+  const last = bands[bands.length - 1];
+  const y0 = last ? last.y1 : 0;
+  return renumber([
+    ...bands,
+    { y0, y1: y0 + APPENDED_BAND_HEIGHT, label: `Tier ${bands.length + 1}` },
+  ]);
+}
+
+/**
+ * Removes a tier, giving its space to the neighbour above (or below, for the
+ * first band) so the bands stay contiguous and no player is orphaned outside
+ * every band. Refuses to remove the last remaining band.
+ */
+export function removeBand(bands: TierBand[], index: number): TierBand[] {
+  if (bands.length <= 1 || !bands[index]) return bands;
+  const gone = bands[index]!;
+  const next = bands.filter((_, i) => i !== index);
+  const absorbIndex = index === 0 ? 0 : index - 1;
+  const absorber = next[absorbIndex]!;
+  next[absorbIndex] =
+    index === 0 ? { ...absorber, y0: gone.y0 } : { ...absorber, y1: gone.y1 };
+  return renumber(next);
+}
+
+/** Renames one band, leaving geometry untouched. */
+export function renameBand(bands: TierBand[], index: number, label: string): TierBand[] {
+  if (!bands[index]) return bands;
+  return bands.map((band, i) => (i === index ? { ...band, label } : band));
+}
+
 export interface TierScarcity {
   band: TierBand;
   remaining: number;
@@ -172,4 +248,37 @@ export function projectBands(
     group.playerIds.push(id);
   }
   return groups;
+}
+
+export const MAX_BANDS = 50;
+export const MAX_BAND_LABEL = 40;
+/** Band edges are set from a shared number on both sides, so drift is only defensive. */
+const BAND_EPSILON = 1e-6;
+
+/**
+ * Whether a band set actually tiles the board: capped, every band finite with
+ * y0 < y1, and each band starting exactly where the previous ended.
+ * projectBands assigns a player to the first band containing their y, so a gap
+ * or overlap silently misassigns players — this is the guard against that, and
+ * it lives here (not in the API layer) so it is unit-testable alongside the
+ * split/append/remove operations whose invariant it enforces.
+ *
+ * An empty array is allowed: projectBands treats "no bands" as a real state
+ * (one implicit "All" band), so rejecting it would make any board stored that
+ * way permanently unsaveable.
+ */
+export function isTileableBands(v: unknown): v is TierBand[] {
+  if (!Array.isArray(v) || v.length > MAX_BANDS) return false;
+  const shapeOk = v.every(
+    (b) =>
+      typeof b?.y0 === "number" &&
+      typeof b?.y1 === "number" &&
+      Number.isFinite(b.y0) &&
+      Number.isFinite(b.y1) &&
+      b.y0 < b.y1 &&
+      typeof b?.label === "string" &&
+      b.label.length <= MAX_BAND_LABEL
+  );
+  if (!shapeOk) return false;
+  return v.every((b, i) => i === 0 || Math.abs(b.y0 - v[i - 1]!.y1) < BAND_EPSILON);
 }

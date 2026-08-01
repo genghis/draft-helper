@@ -19,23 +19,8 @@
   color: var(--ink);
 }
 
-.tag-editor-colors {
-  display: flex;
-  gap: 0.45rem;
-}
 
-.tag-color-swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  padding: 0;
-  cursor: pointer;
-}
 
-.tag-color-swatch-active {
-  border-color: var(--ink);
-}
 
 .tag-editor-members {
   list-style: none;
@@ -74,6 +59,20 @@
 }
 
 .tag-editor-view textarea {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.85rem;
+  padding: 0.55rem;
+  color: var(--ink);
+}
+
+.tag-editor-paste summary {
+  cursor: pointer;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+
+.tag-editor-paste textarea {
+  width: 100%;
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.85rem;
   padding: 0.55rem;

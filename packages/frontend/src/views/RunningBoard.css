@@ -1,0 +1,102 @@
+.running-board {
+  margin-top: 1rem;
+}
+
+.turn-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ink-dim);
+  border-radius: var(--radius);
+  margin-bottom: 0.75rem;
+}
+
+.turn-banner strong {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.turn-banner span {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
+.turn-banner-now {
+  border-left-color: var(--brass);
+  background: color-mix(in srgb, var(--brass) 14%, transparent);
+}
+
+.turn-banner-now strong {
+  color: var(--brass-strong);
+}
+
+.running-board-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.3rem;
+}
+
+.running-board-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.running-board-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.25rem 0.35rem;
+  border-radius: var(--radius);
+}
+
+.running-board-list li.is-mine {
+  background: color-mix(in srgb, var(--brass) 12%, transparent);
+}
+
+.running-board-num {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+  min-width: 2.5rem;
+}
+
+.running-board-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 9rem;
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+
+.running-board-player {
+  flex: 1;
+  color: var(--ink);
+}
+
+.running-board-guess {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--warn);
+  cursor: help;
+}

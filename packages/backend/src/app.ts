@@ -3,6 +3,7 @@ import { getCookie } from "hono/cookie";
 import type {
   BoardAgreement,
   BoardPosition,
+  DraftOrder,
   Placement,
   RankedPlayer,
   ScoringFormat,
@@ -11,7 +12,12 @@ import type {
   TagColor,
   TierBand,
 } from "@drafthelper/shared";
-import { mapEspnPicks, TAG_COLORS } from "@drafthelper/shared";
+import {
+  isTileableBands,
+  isValidDraftOrder,
+  mapEspnPicks,
+  TAG_COLORS,
+} from "@drafthelper/shared";
 import type { ExtPicksRequest } from "@drafthelper/shared";
 import {
   createBoard,
@@ -23,8 +29,10 @@ import {
 } from "./db/boards.js";
 import {
   deletePick,
+  getDraftOrder,
   getDraftSync,
   listPicks,
+  putDraftOrder,
   putEspnPick,
   putPick,
   resetDraft,
@@ -63,21 +71,6 @@ const MAX_ID_LENGTH = 64;
 const TAG_COLOR_SET = new Set<string>(TAG_COLORS);
 
 const MAX_PLACEMENTS = 1000;
-
-/** Every band is {y0<y1, numeric, string label}. */
-function isValidBands(v: unknown): v is TierBand[] {
-  return (
-    Array.isArray(v) &&
-    v.every(
-      (b) =>
-        typeof b?.y0 === "number" &&
-        typeof b?.y1 === "number" &&
-        b.y0 < b.y1 &&
-        typeof b?.label === "string"
-    )
-  );
-}
-
 /** A placements map: object, capped, every value a numeric {x,y}. */
 function isValidPlacements(v: unknown): v is Record<string, Placement> {
   if (typeof v !== "object" || v === null) return false;
@@ -347,7 +340,7 @@ app.post("/boards", async (c) => {
     name.length > 80 ||
     !POSITIONS.has(position) ||
     !SCORINGS.has(scoring) ||
-    !isValidBands(bands) ||
+    !isTileableBands(bands) ||
     !isValidPlacements(placements)
   ) {
     return c.json({ error: "invalid board" }, 400);
@@ -607,7 +600,7 @@ app.put("/boards/:id", async (c) => {
     return c.json({ error: "not found" }, 404);
   }
   const body = await c.req
-    .json<{ name?: unknown; bands?: unknown }>()
+    .json<{ name?: unknown; bands?: unknown; version?: unknown }>()
     .catch(() => null);
   const changes: { name?: string; bands?: TierBand[] } = {};
   if (body?.name !== undefined) {
@@ -617,7 +610,7 @@ app.put("/boards/:id", async (c) => {
     changes.name = body.name.trim();
   }
   if (body?.bands !== undefined) {
-    if (!isValidBands(body.bands)) {
+    if (!isTileableBands(body.bands)) {
       return c.json({ error: "invalid bands" }, 400);
     }
     changes.bands = body.bands;
@@ -625,8 +618,16 @@ app.put("/boards/:id", async (c) => {
   if (changes.name === undefined && changes.bands === undefined) {
     return c.json({ error: "nothing to update" }, 400);
   }
-  const meta = await updateBoardMeta(c.req.param("id"), changes);
-  if (!meta) return c.json({ error: "not found" }, 404);
+  // Band writes replace the whole array, so a stale tab would re-tier every
+  // player. Callers that send a version get optimistic concurrency; ones that
+  // don't keep the previous last-write-wins behaviour.
+  const expected = typeof body?.version === "number" ? body.version : undefined;
+  const meta = await updateBoardMeta(c.req.param("id"), changes, expected);
+  if (!meta) {
+    return expected === undefined
+      ? c.json({ error: "not found" }, 404)
+      : c.json({ error: "version conflict" }, 409);
+  }
   return c.json(meta);
 });
 
@@ -662,8 +663,22 @@ app.delete("/boards/:id", async (c) => {
 // ── Draft picks (one implicit draft per user) ─────────────────────────
 app.get("/draft", async (c) => {
   const userId = c.get("user").id;
-  const [picks, sync] = await Promise.all([listPicks(userId), getDraftSync(userId)]);
-  return c.json({ picks, sync });
+  const [picks, sync, order] = await Promise.all([
+    listPicks(userId),
+    getDraftSync(userId),
+    getDraftOrder(userId),
+  ]);
+  return c.json({ picks, sync, order });
+});
+
+/**
+ * The draft order: seat list plus which seat is the user's. Replaced whole,
+ * last write wins — it is small, single-user, and edited from one screen.
+ */
+app.put("/draft/order", async (c) => {
+  const body = await c.req.json<unknown>().catch(() => null);
+  if (!isValidDraftOrder(body)) return c.json({ error: "invalid order" }, 400);
+  return c.json(await putDraftOrder(c.get("user").id, body));
 });
 
 /** Reconciles from ESPN once the real draft has completed. */

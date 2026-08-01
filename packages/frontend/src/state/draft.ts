@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DraftState, DraftSync, Pick } from "@drafthelper/shared";
+import type { DraftOrder, DraftState, DraftSync, Pick } from "@drafthelper/shared";
+import { deriveOrder, emptyOrder } from "@drafthelper/shared";
 import { api } from "../api/client";
 
 const POLL_MS = 5000;
+/** Seat names are typed, so coalesce keystrokes into one write. */
+const ORDER_SAVE_DEBOUNCE_MS = 400;
 
 interface Options {
   /** Refetch every few seconds while the tab is visible (draft-day mode). */
@@ -15,6 +18,11 @@ interface Options {
 export function useDraft({ poll = false, enabled = true }: Options = {}) {
   const [picks, setPicks] = useState<Map<string, Pick>>(new Map());
   const [sync, setSync] = useState<DraftSync>({ lastPushAt: null });
+  const [order, setOrderState] = useState<DraftOrder | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  // Mirrors `order` so a save can roll back to the value it replaced without
+  // depending on a stale closure.
+  const orderRef = useRef<DraftOrder | null>(null);
   // Player ids this session marked, most recent last; undoLast pops it.
   const undoStack = useRef<string[]>([]);
   const [lastMarked, setLastMarked] = useState<string | null>(null);
@@ -28,6 +36,8 @@ export function useDraft({ poll = false, enabled = true }: Options = {}) {
     if (inflight.current > 0) return; // a write started while we were fetching
     setPicks(new Map(state.picks.map((p) => [p.playerId, p])));
     setSync(state.sync);
+    setOrderState(state.order ?? null);
+    orderRef.current = state.order ?? null;
   }, []);
 
   const track = useCallback(async (op: Promise<unknown>) => {
@@ -96,7 +106,70 @@ export function useDraft({ poll = false, enabled = true }: Options = {}) {
     await track(api("/draft", { method: "DELETE" }));
   }, [track]);
 
-  return { picks, sync, mark, unmark, undoLast, lastMarked, refresh, reset };
+  const orderSeq = useRef(0);
+  const orderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (orderTimer.current) clearTimeout(orderTimer.current);
+  }, []);
+
+  /**
+   * Applies an order change optimistically, then writes it once the edits stop.
+   * PUT /draft/order is last-write-wins with no version, and seat names are
+   * typed — so an un-debounced write per keystroke lets a slow early response
+   * land after a fast later one and silently revert what was typed. The
+   * sequence guard drops any save a newer edit has already superseded.
+   *
+   * Resolves either way: callers (including the auto-derive effect) fire and
+   * forget, and an unhandled rejection would be invisible mid-draft. A failed
+   * write leaves the optimistic value on screen with an error beside it; the
+   * 5s poll then reconciles against the server.
+   */
+  const saveOrder = useCallback(
+    async (next: DraftOrder) => {
+      setOrderState(next);
+      orderRef.current = next;
+      setOrderError(null);
+      const seq = ++orderSeq.current;
+      if (orderTimer.current) clearTimeout(orderTimer.current);
+      await new Promise<void>((resolve) => {
+        orderTimer.current = setTimeout(resolve, ORDER_SAVE_DEBOUNCE_MS);
+      });
+      if (seq !== orderSeq.current) return;
+      try {
+        await track(api("/draft/order", { method: "PUT", body: next }));
+      } catch {
+        if (seq === orderSeq.current) {
+          setOrderError("Couldn't save the draft order — retrying on the next sync.");
+        }
+      }
+    },
+    [track]
+  );
+
+  // Round 1's live ESPN picks reveal the seat order, so fill it in as they
+  // arrive. Only persists when something was actually learned — deriveOrder
+  // returns its input unchanged otherwise, which keeps this out of a loop.
+  useEffect(() => {
+    if (!enabled || order === null) return;
+    const derived = deriveOrder([...picks.values()], order);
+    if (derived !== order) void saveOrder(derived);
+  }, [enabled, picks, order, saveOrder]);
+
+  return {
+    picks,
+    sync,
+    order,
+    orderError,
+    saveOrder,
+    /** Creates a default order on first use; the app has none until then. */
+    startOrder: useCallback((teamCount: number) => saveOrder(emptyOrder(teamCount)), [saveOrder]),
+    mark,
+    unmark,
+    undoLast,
+    lastMarked,
+    refresh,
+    reset,
+  };
 }
 
 export type DraftController = ReturnType<typeof useDraft>;

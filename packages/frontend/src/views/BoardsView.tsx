@@ -21,6 +21,7 @@ interface Props {
   playersById: Map<string, Player>;
   adp: AdpLookup;
   tagsByPlayer: Map<string, TagMeta[]>;
+  onTagPlayer?: (playerId: string) => void;
   draft: DraftController;
   onLayoutChanged?: (boardId: string, layout: BoardLayout) => void;
   onSortingCreated: (board: BoardMeta) => void;
@@ -33,6 +34,7 @@ export function BoardsView({
   playersById,
   adp,
   tagsByPlayer,
+  onTagPlayer,
   draft,
   onLayoutChanged,
   onSortingCreated,
@@ -107,9 +109,9 @@ export function BoardsView({
   if (boards.length === 0) {
     return (
       <section className="boards-empty">
-        <p>No sortings yet — build one from your ranking sources.</p>
+        <p>No cheat sheets yet — build one from your ranking sources.</p>
         <button type="button" onClick={() => setShowNew(true)}>
-          New sorting
+          New cheat sheet
         </button>
         {newSortingModal}
       </section>
@@ -131,12 +133,12 @@ export function BoardsView({
           </button>
         ))}
         <button type="button" className="board-tab board-tab-add" onClick={() => setShowNew(true)}>
-          + New sorting
+          + New cheat sheet
         </button>
       </nav>
       {conflictNotice && (
         <p className="app-error">
-          Board was updated elsewhere — reloaded the latest version.{" "}
+          Cheat sheet was updated elsewhere — reloaded the latest version.{" "}
           <button type="button" className="secondary" onClick={() => setConflictNotice(false)}>
             Dismiss
           </button>
@@ -185,6 +187,7 @@ export function BoardsView({
               playersById={playersById}
               adp={adp}
               tagsByPlayer={tagsByPlayer}
+              onTagPlayer={onTagPlayer}
               picks={draft.picks}
               onMark={draft.mark}
               onUnmark={draft.unmark}

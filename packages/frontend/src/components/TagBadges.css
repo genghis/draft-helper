@@ -73,3 +73,23 @@
 .tag-dot.tag-color-gray {
   background: var(--tag-gray);
 }
+
+/* Colour picker swatches — used by both the tag editor and the quick-add modal. */
+
+.tag-editor-colors {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.tag-color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.tag-color-swatch-active {
+  border-color: var(--ink);
+}

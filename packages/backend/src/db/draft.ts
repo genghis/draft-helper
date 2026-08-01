@@ -5,7 +5,7 @@ import {
   QueryCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import type { DraftSync, Pick, PickSource } from "@drafthelper/shared";
+import type { DraftOrder, DraftSync, Pick, PickSource } from "@drafthelper/shared";
 import { ddb, TABLE_NAME } from "./client.js";
 
 /**
@@ -33,28 +33,53 @@ export async function listPicks(userId: string): Promise<Pick[]> {
       mine: item.mine === true,
       pickedAt: item.pickedAt as string,
       overall: item.overall as number | undefined,
+      espnTeamId: item.espnTeamId as number | undefined,
     }));
 }
 
+/**
+ * Marks a pick, updating only the fields a manual mark owns. It must NOT be a
+ * whole-item Put: marking a player the extension already synced would drop
+ * `overall` and `espnTeamId`, and putEspnPick's condition (source must be
+ * "espn") means the extension could never put them back. That erasure is
+ * worst exactly where it hurts most — hitting "Mine" on your own pick is what
+ * deriveOrder reads to learn your seat, so the turn banner would go dark for
+ * the rest of the draft. REMOVE #del un-tombstones a previously unmarked row.
+ */
 export async function putPick(
   userId: string,
   playerId: string,
   opts: { mine: boolean; source: PickSource; overall?: number }
 ): Promise<Pick> {
-  const pick: Pick = {
+  const pickedAt = new Date().toISOString();
+  const res = await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: `DRAFT#${userId}`, sk: `PICK#${playerId}` },
+      UpdateExpression:
+        "SET playerId = :pid, #src = :src, #mine = :mine, pickedAt = :at" +
+        (opts.overall !== undefined ? ", overall = :ov" : "") +
+        " REMOVE #del, deletedAt",
+      ExpressionAttributeNames: { "#src": "source", "#mine": "mine", "#del": "deleted" },
+      ExpressionAttributeValues: {
+        ":pid": playerId,
+        ":src": opts.source,
+        ":mine": opts.mine,
+        ":at": pickedAt,
+        ...(opts.overall !== undefined ? { ":ov": opts.overall } : {}),
+      },
+      ReturnValues: "ALL_NEW",
+    })
+  );
+  const item = res.Attributes ?? {};
+  return {
     playerId,
     source: opts.source,
     mine: opts.mine,
-    pickedAt: new Date().toISOString(),
-    overall: opts.overall,
+    pickedAt,
+    overall: item.overall as number | undefined,
+    espnTeamId: item.espnTeamId as number | undefined,
   };
-  await ddb.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: { pk: `DRAFT#${userId}`, sk: `PICK#${playerId}`, ...pick },
-    })
-  );
-  return pick;
 }
 
 /**
@@ -73,7 +98,7 @@ export async function putPick(
  */
 export async function putEspnPick(
   userId: string,
-  pick: { playerId: string; mine: boolean; overall: number }
+  pick: { playerId: string; mine: boolean; overall: number; teamId?: number }
 ): Promise<boolean> {
   // Passes when the row is absent, or ESPN-sourced and not tombstoned (and,
   // for a non-mine push, not already flagged as the user's own).
@@ -93,6 +118,13 @@ export async function putEspnPick(
           mine: pick.mine,
           pickedAt: new Date().toISOString(),
           overall: pick.overall,
+          // Kept so the running board can name the drafter, not just flag "mine".
+          // ESPN team ids are 1-based: the extension's DOM rescan sends 0 for
+          // "couldn't tell who picked", which must stay absent rather than
+          // become a team every rescan pick binds to.
+          ...(pick.teamId !== undefined && pick.teamId > 0
+            ? { espnTeamId: pick.teamId }
+            : {}),
         },
         ConditionExpression: condition,
         ExpressionAttributeNames: pick.mine
@@ -140,8 +172,8 @@ export async function getDraftSync(userId: string): Promise<DraftSync> {
  * Unmark/undo is a soft delete: we tombstone the row (deleted=true) rather than
  * remove it, so a still-connected extension re-pushing its cumulative snapshot
  * can't resurrect the pick (putEspnPick refuses a tombstoned row). A later
- * manual re-mark via putPick writes a fresh Item with no `deleted` flag, which
- * deliberately clears the tombstone. `deleted` is a DynamoDB reserved word.
+ * manual re-mark via putPick REMOVEs the `deleted` flag, which deliberately
+ * clears the tombstone. `deleted` is a DynamoDB reserved word.
  */
 export async function deletePick(userId: string, playerId: string): Promise<void> {
   await ddb.send(
@@ -184,6 +216,62 @@ export async function resetDraft(userId: string): Promise<number> {
       })
     );
   }
+  // The seat list survives (names and "which seat is mine" are league facts worth
+  // keeping across mocks), but the ESPN team ids learned from the last draft do
+  // not: they are invisible in the UI, there is no way to clear them by hand, and
+  // a stale mapping would silently misattribute the next draft's picks.
+  // Best-effort: the picks are already deleted, so a failure here must not turn
+  // a completed reset into a 500. Stale links are recoverable (unlink a seat);
+  // a reset that reports failure after succeeding is not.
+  try {
+    const order = await getDraftOrder(userId);
+    if (order?.teams?.some((t) => t.espnTeamId !== undefined)) {
+      await putDraftOrder(userId, {
+        ...order,
+        teams: order.teams.map((t) => ({ name: t.name })),
+      });
+    }
+  } catch {
+    // Leave the seat links; the user can unlink them by hand.
+  }
   // Count only live picks removed, not tombstones, so the UI's "cleared N" is honest.
   return items.filter((item) => item.deleted !== true).length;
+}
+
+/**
+ * The draft order (team seats + which is the user's). One document per user,
+ * alongside their picks; last write wins, like the rest of the draft record.
+ */
+export async function getDraftOrder(userId: string): Promise<DraftOrder | undefined> {
+  const res = await ddb.send(
+    new GetCommand({ TableName: TABLE_NAME, Key: { pk: `DRAFT#${userId}`, sk: "ORDER" } })
+  );
+  const item = res.Item;
+  if (!item) return undefined;
+  return {
+    teamCount: item.teamCount as number,
+    teams: (item.teams as DraftOrder["teams"] | undefined) ?? [],
+    mySlot: (item.mySlot ?? null) as number | null,
+  };
+}
+
+export async function putDraftOrder(userId: string, order: DraftOrder): Promise<DraftOrder> {
+  // Rebuilt field by field, never spread from the request body: a spread would
+  // let a caller-supplied pk/sk override the key above and write any item in
+  // the table. Validation checks the fields we need, not the ones we don't.
+  const clean: DraftOrder = {
+    teamCount: order.teamCount,
+    teams: order.teams.map((t) => ({
+      name: t.name,
+      ...(t.espnTeamId !== undefined ? { espnTeamId: t.espnTeamId } : {}),
+    })),
+    mySlot: order.mySlot,
+  };
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: { pk: `DRAFT#${userId}`, sk: "ORDER", ...clean },
+    })
+  );
+  return clean;
 }

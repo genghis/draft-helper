@@ -7,6 +7,7 @@ import {
   layoutFromRanked,
 } from "@drafthelper/shared";
 import { api } from "../api/client";
+import "../components/Modal.css";
 import "./NewSortingModal.css";
 
 interface Props {
@@ -77,10 +78,10 @@ export function NewSortingModal({ sources, onCreated, onClose }: Props) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <h2>New sorting</h2>
+        <h2>New cheat sheet</h2>
 
         {sources.length === 0 ? (
-          <p className="muted">Import a source first — sortings are built from sources.</p>
+          <p className="muted">Import a source first — cheat sheets are built from sources.</p>
         ) : (
           <>
             <label className="modal-field">
@@ -136,14 +137,14 @@ export function NewSortingModal({ sources, onCreated, onClose }: Props) {
             )}
             {scoringMismatch && !scopeMismatch && (
               <p className="modal-warn">
-                Heads up: mixing scoring formats — the sorting will use {chosen[0]!.scoring}.
+                Heads up: mixing scoring formats — the cheat sheet will use {chosen[0]!.scoring}.
               </p>
             )}
             {error && <p className="modal-error">{error}</p>}
 
             <div className="modal-actions">
               <button type="button" disabled={!ready || busy} onClick={create}>
-                {busy ? "Creating…" : "Create sorting"}
+                {busy ? "Creating…" : "Create cheat sheet"}
               </button>
               <button type="button" className="secondary" onClick={onClose}>
                 Cancel
@@ -157,7 +158,7 @@ export function NewSortingModal({ sources, onCreated, onClose }: Props) {
 }
 
 function defaultName(tool: SeedTool, chosen: SourceMeta[]): string {
-  if (chosen.length === 0) return "New sorting";
+  if (chosen.length === 0) return "New cheat sheet";
   if (tool === "single") return chosen[0]!.name;
   return `Consensus — ${chosen[0]!.scope} (${chosen.length} sources)`;
 }

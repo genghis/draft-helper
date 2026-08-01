@@ -1,0 +1,50 @@
+/* Shared modal chrome. Imported by every modal rather than reaching into
+   whichever view happened to define it first. */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 12, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3rem 1rem;
+  z-index: 10;
+  overflow-y: auto;
+}
+
+.modal-card {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1.25rem;
+  width: min(30rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--ink-dim);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.modal-error {
+  color: var(--danger);
+  margin: 0;
+}
+
+.modal-warn {
+  color: var(--warn);
+  margin: 0;
+}

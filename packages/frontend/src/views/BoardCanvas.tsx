@@ -7,14 +7,19 @@ import type {
   Placement,
   Player,
   TagMeta,
+  TierBand,
 } from "@drafthelper/shared";
 import {
+  appendBand,
   highDisagreementIds,
   moveBandBoundary,
   RANK_SPACING,
+  removeBand,
+  renameBand,
+  splitBand,
   spreadPlacements,
 } from "@drafthelper/shared";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import { useLayoutSaver } from "../state/layoutSaver";
 import { TagDots } from "../components/TagBadges";
 import "./BoardCanvas.css";
@@ -55,6 +60,10 @@ export function BoardCanvas({
 }: Props) {
   const [placements, setPlacements] = useState(layout.placements);
   const [bands, setBands] = useState(meta.bands);
+  const [bandError, setBandError] = useState<string | null>(null);
+  // Index of the band whose label is being edited, plus its in-progress text.
+  const [editingLabel, setEditingLabel] = useState<number | null>(null);
+  const [draftLabel, setDraftLabel] = useState("");
   const splitIds = useMemo(
     () => (agreement ? highDisagreementIds(agreement) : new Set<string>()),
     [agreement]
@@ -130,15 +139,79 @@ export function BoardCanvas({
     }
   }
 
+  // PUT /boards/:id is last-write-wins with no version, so an older response
+  // landing after a newer one would push stale bands back up through
+  // onMetaChanged. Only the newest save is allowed to report.
+  const bandSeq = useRef(0);
+  // Bumped locally on each accepted save so consecutive edits send the version
+  // the server now holds, without waiting for a refetch.
+  const bandVersion = useRef(meta.version ?? 0);
+
+  /**
+   * Bands live on the board meta and are replaced whole on every change, so the
+   * write is version-guarded: a second tab editing the same cheat sheet would
+   * otherwise silently re-tier every player. A 409 routes into the same reload
+   * the layout saver already uses.
+   */
+  function saveBands(next: TierBand[]) {
+    const prev = bands;
+    const seq = ++bandSeq.current;
+    setBands(next);
+    void api<BoardMeta>(`/boards/${meta.id}`, {
+      method: "PUT",
+      body: { bands: next, version: bandVersion.current },
+    })
+      .then((m) => {
+        bandVersion.current = m.version ?? bandVersion.current + 1;
+        if (seq === bandSeq.current) onMetaChanged(m);
+      })
+      .catch((e) => {
+        if (seq !== bandSeq.current) return;
+        // Put the tiers back: a rejected save that left the new bands on screen
+        // would have the user drafting against a layout the server never took.
+        setBands(prev);
+        if (e instanceof ApiError && e.status === 409) {
+          setBandError("Tiers changed in another tab — reloading the latest.");
+          onConflict();
+        } else {
+          setBandError("Couldn't save that tier change — try again.");
+        }
+      });
+  }
+
   function onPointerUp() {
     const active = drag.current;
     drag.current = null;
-    if (active?.kind === "boundary") {
-      void api<BoardMeta>(`/boards/${meta.id}`, {
-        method: "PUT",
-        body: { bands },
-      }).then(onMetaChanged);
+    if (active?.kind === "boundary") saveBands(bands);
+  }
+
+  function splitAt(index: number) {
+    const band = bands[index];
+    if (!band) return;
+    const next = splitBand(bands, index, (band.y0 + band.y1) / 2);
+    if (next === bands) {
+      setBandError("That tier is too short to split — drag its boundary down first.");
+      return;
     }
+    setBandError(null);
+    saveBands(next);
+  }
+
+  /**
+   * Rename commits on blur, so Enter and click-away take one path. Escape sets
+   * this first, since closing the input also fires blur.
+   */
+  const renameCancelled = useRef(false);
+
+  function commitRename(index: number) {
+    setEditingLabel(null);
+    if (renameCancelled.current) {
+      renameCancelled.current = false;
+      return;
+    }
+    const label = draftLabel.trim();
+    if (!label || label === bands[index]?.label) return;
+    saveBands(renameBand(bands, index, label.slice(0, 40)));
   }
 
   function autoArrange() {
@@ -153,7 +226,18 @@ export function BoardCanvas({
         <button type="button" className="secondary" onClick={autoArrange}>
           Auto-arrange
         </button>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => {
+            setBandError(null);
+            saveBands(appendBand(bands));
+          }}
+        >
+          + Add tier at bottom
+        </button>
         {saving && <span className="canvas-saving muted">saving…</span>}
+        {bandError && <span className="canvas-band-error">{bandError}</span>}
       </div>
       {/* Inline styles below are all per-element coordinates computed from live
           layout/drag state (maxY, band y0/y1, chip x/y as %); they change every
@@ -167,14 +251,61 @@ export function BoardCanvas({
       >
         {bands.map((band, i) => (
           <div
-            key={`${band.label}-${i}`}
+            key={`band-${i}`}
             className={i % 2 === 0 ? "canvas-band" : "canvas-band canvas-band-alt"}
             style={{
               top: `${(band.y0 / maxY) * 100}%`,
               height: `${((band.y1 - band.y0) / maxY) * 100}%`,
             }}
           >
-            <span className="canvas-band-label">{band.label}</span>
+            <div className="canvas-band-head">
+              {editingLabel === i ? (
+                <input
+                  className="canvas-band-input"
+                  value={draftLabel}
+                  autoFocus
+                  maxLength={40}
+                  onChange={(e) => setDraftLabel(e.target.value)}
+                  onBlur={() => commitRename(i)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") renameCancelled.current = true;
+                    if (e.key === "Enter" || e.key === "Escape") e.currentTarget.blur();
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="canvas-band-label"
+                  onClick={() => {
+                    setDraftLabel(band.label);
+                    setEditingLabel(i);
+                  }}
+                  title="Rename this tier"
+                >
+                  {band.label}
+                </button>
+              )}
+              <button
+                type="button"
+                className="canvas-band-action"
+                onClick={() => splitAt(i)}
+                title={`Split ${band.label} into two tiers`}
+                aria-label={`Split ${band.label} into two tiers`}
+              >
+                +
+              </button>
+              {bands.length > 1 && (
+                <button
+                  type="button"
+                  className="canvas-band-action"
+                  onClick={() => saveBands(removeBand(bands, i))}
+                  title={`Remove ${band.label}, merging it into the neighbouring tier`}
+                  aria-label={`Remove ${band.label}`}
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
         ))}
         {bands.slice(0, -1).map((band, i) => (

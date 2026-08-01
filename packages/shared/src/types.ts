@@ -1,3 +1,4 @@
+import type { DraftOrder } from "./draftOrder.js";
 import type { RankedPlayer } from "./tiers.js";
 
 export type Position = "QB" | "RB" | "WR" | "TE" | "K" | "DST";
@@ -40,6 +41,14 @@ export interface TierBand {
  */
 export type BoardPosition = Position | "FLX" | "OVERALL";
 
+/**
+ * Vocabulary note — one concept, three names. The UI calls this a **Cheat
+ * Sheet**; the code calls it a **sorting** (NewSortingModal, onSortingCreated,
+ * the "sortings" View) and a **board** (BoardMeta, BoardsView, /boards). Only
+ * the user-facing copy was renamed. Unrelated: RunningBoard / "Draft board" is
+ * the live pick-by-pick log, which has nothing to do with BoardMeta.
+ */
+
 /** How a sorting (board) was seeded from sources. */
 export type SeedTool = "single" | "consensus";
 
@@ -50,6 +59,11 @@ export interface BoardMeta {
   position: BoardPosition;
   scoring: ScoringFormat;
   bands: TierBand[];
+  /**
+   * Optimistic-concurrency version for the meta document (name + bands).
+   * Absent on boards written before versioning existed; treat as 0.
+   */
+  version?: number;
   createdAt: string;
   updatedAt: string;
   /** Immutable sources this sorting was seeded from (provenance; optional). */
@@ -150,6 +164,8 @@ export interface Pick {
   pickedAt: string;
   /** Overall pick number, 1-based; known for ESPN-synced picks. */
   overall?: number;
+  /** ESPN fantasy team id that made the pick; known for ESPN-synced picks. */
+  espnTeamId?: number;
 }
 
 /** One row parsed from any rankings source, before player matching. */
@@ -203,6 +219,8 @@ export interface DraftSync {
 export interface DraftState {
   picks: Pick[];
   sync: DraftSync;
+  /** Absent until the user sets one up or round 1 derives it. */
+  order?: DraftOrder;
 }
 
 export interface SessionUser {

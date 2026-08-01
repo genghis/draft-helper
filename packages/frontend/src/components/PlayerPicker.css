@@ -1,0 +1,100 @@
+.player-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.player-picker-search {
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  color: var(--ink);
+  max-width: 28rem;
+}
+
+.player-picker-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.player-picker-chip {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+
+.player-picker-chip.is-on {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: var(--brass-ink);
+}
+
+.player-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: 20rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.player-picker-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  padding: 0.35rem 0.6rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.player-picker-row[data-position="QB"] { border-left-color: var(--pos-qb); }
+.player-picker-row[data-position="RB"] { border-left-color: var(--pos-rb); }
+.player-picker-row[data-position="WR"] { border-left-color: var(--pos-wr); }
+.player-picker-row[data-position="TE"] { border-left-color: var(--pos-te); }
+.player-picker-row[data-position="K"] { border-left-color: var(--pos-k); }
+.player-picker-row[data-position="DST"] { border-left-color: var(--pos-dst); }
+
+.player-picker-row:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.player-picker-row:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.player-picker-name {
+  flex: 1;
+  color: var(--ink);
+}
+
+.player-picker-meta {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--ink-dim);
+}
+
+.player-picker-add {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--ink-dim);
+  min-width: 3rem;
+  text-align: right;
+}

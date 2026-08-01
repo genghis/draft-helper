@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { MatchResult, Player, Tag, TagColor, TagMeta } from "@drafthelper/shared";
 import { matchEntries, parseRankings, TAG_COLORS } from "@drafthelper/shared";
 import { api, ApiError } from "../api/client";
+import { PlayerPicker } from "../components/PlayerPicker";
 import "../components/TagBadges.css";
 import "./ImportView.css";
 import "./TagEditorView.css";
@@ -17,7 +18,7 @@ interface Props {
 
 type Stage = { kind: "edit" } | { kind: "review"; result: MatchResult } | { kind: "saving" };
 
-/** Create or edit a tag: label + color + paste-to-add, with removable member chips. */
+/** Create or edit a tag: label + color + search-to-add, with removable member chips. */
 export function TagEditorView({ players, playersById, existingTag, onSaved, onCancel }: Props) {
   const [label, setLabel] = useState(existingTag?.meta.label ?? "");
   const [color, setColor] = useState<TagColor>(existingTag?.meta.color ?? "blue");
@@ -35,10 +36,23 @@ export function TagEditorView({ players, playersById, existingTag, onSaved, onCa
     [existingTag, removedIds]
   );
   const memberIds = useMemo(() => [...new Set([...baseIds, ...addedIds])], [baseIds, addedIds]);
+  const memberIdSet = useMemo(() => new Set(memberIds), [memberIds]);
 
   function removeMember(id: string) {
     setRemovedIds((prev) => new Set(prev).add(id));
     setAddedIds((prev) => prev.filter((x) => x !== id));
+  }
+
+  function addMember(id: string) {
+    // Re-adding someone removed earlier this session has to clear the removal,
+    // or the two sets cancel out and the click appears to do nothing.
+    setRemovedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setAddedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }
 
   function parsePasted() {
@@ -50,11 +64,9 @@ export function TagEditorView({ players, playersById, existingTag, onSaved, onCa
     }
     const result = matchEntries(entries, players, "OVERALL");
     if (result.unmatched.length > 0) {
-      setResolutions(
-        Object.fromEntries(
-          result.unmatched.map((u) => [u.entry.rank, u.candidates[0]?.player.id ?? ""])
-        )
-      );
+      // Empty on purpose — unmatched rows start on "Skip" rather than the
+      // nearest fuzzy guess, which was quietly adding the wrong players.
+      setResolutions({});
       setStage({ kind: "review", result });
     } else {
       setAddedIds((ids) => [...ids, ...result.matched.map((m) => m.player.id)]);
@@ -138,10 +150,18 @@ export function TagEditorView({ players, playersById, existingTag, onSaved, onCa
             ` — ${result.unmatched.length} need${result.unmatched.length === 1 ? "s" : ""} your eye`}
           .
         </p>
+        {result.unmatched.some((u) => !resolutions[u.entry.rank]) && (
+          <p className="import-warning">
+            Highlighted rows won't be added — pick a player for any you want to keep.
+          </p>
+        )}
         {result.unmatched.length > 0 && (
           <ul className="import-unmatched">
             {result.unmatched.map((u) => (
-              <li key={u.entry.rank}>
+              <li
+                key={u.entry.rank}
+                className={resolutions[u.entry.rank] ? undefined : "import-unresolved"}
+              >
                 <span className="import-source-name">{u.entry.name}</span>
                 <select
                   value={resolutions[u.entry.rank] ?? ""}
@@ -221,18 +241,24 @@ export function TagEditorView({ players, playersById, existingTag, onSaved, onCa
           </ul>
         )}
       </div>
-      <p className="muted">Paste names to add (one per line, or from an article):</p>
-      <textarea
-        value={pasted}
-        onChange={(e) => setPasted(e.target.value)}
-        rows={6}
-        placeholder={"Player One\nPlayer Two"}
-      />
-      <div className="import-actions">
-        <button type="button" disabled={!pasted.trim()} onClick={parsePasted}>
-          Add pasted players
-        </button>
-      </div>
+      <p className="muted">Add players:</p>
+      <PlayerPicker players={players} selected={memberIdSet} onAdd={addMember} />
+
+      <details className="tag-editor-paste">
+        <summary>Paste a list instead</summary>
+        <p className="muted">One name per line, or straight from an article:</p>
+        <textarea
+          value={pasted}
+          onChange={(e) => setPasted(e.target.value)}
+          rows={6}
+          placeholder={"Player One\nPlayer Two"}
+        />
+        <div className="import-actions">
+          <button type="button" disabled={!pasted.trim()} onClick={parsePasted}>
+            Add pasted players
+          </button>
+        </div>
+      </details>
       <div className="import-actions">
         <button type="button" disabled={saving} onClick={save}>
           {saving ? "Saving…" : "Save tag"}

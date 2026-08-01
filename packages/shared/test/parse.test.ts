@@ -59,4 +59,22 @@ describe("parseRankings", () => {
     const entries = parseRankings("1. A One\n2. B Two\n3) C Three");
     expect(entries.map((e) => e.name)).toEqual(["A One", "B Two", "C Three"]);
   });
+
+  it("drops position-rank labels so they can't fuzzy-match a real player", () => {
+    const entries = parseRankings("TE19\nA One\nRB 12\nD/ST\nB Two\nWR\n2025\n---");
+    expect(entries).toEqual([
+      { name: "A One", rank: 1, tier: 1 },
+      { name: "B Two", rank: 2, tier: 1 },
+    ]);
+  });
+
+  it("drops position-rank labels in headered CSV too", () => {
+    const entries = parseRankings("Rank,Player,Tier\n1,A One,1\n2,TE19,1");
+    expect(entries.map((e) => e.name)).toEqual(["A One"]);
+  });
+
+  it("keeps real names that start with a position abbreviation", () => {
+    const entries = parseRankings("Kenneth Walker\nTerry McLaurin\nKyren Williams");
+    expect(entries).toHaveLength(3);
+  });
 });

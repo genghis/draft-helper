@@ -1,0 +1,57 @@
+.tag-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+.tag-picker-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.55rem;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.tag-picker-option:hover:not(:disabled) {
+  border-color: var(--brass);
+}
+
+.tag-picker-option:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.tag-picker-new {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.65rem;
+}
+
+.tag-picker-new legend {
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+  padding: 0 0.3rem;
+}
+
+.tag-picker-new input {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+  color: var(--ink);
+}

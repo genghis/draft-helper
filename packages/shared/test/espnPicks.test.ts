@@ -20,8 +20,8 @@ describe("mapEspnPicks", () => {
       ],
     });
     expect(res.picks).toEqual([
-      { playerId: "sleeper-jw", mine: true, overall: 1 },
-      { playerId: "sleeper-jg", mine: false, overall: 2 },
+      { playerId: "sleeper-jw", mine: true, overall: 1, teamId: 4 },
+      { playerId: "sleeper-jg", mine: false, overall: 2, teamId: 7 },
     ]);
     expect(res.unmapped).toEqual([]);
   });
@@ -33,7 +33,7 @@ describe("mapEspnPicks", () => {
       picks: [{ espnPlayerId: -16007, overall: 30, teamId: 1 }],
     });
     expect(res.picks).toEqual([
-      { playerId: "sleeper-den-dst", mine: true, overall: 30 },
+      { playerId: "sleeper-den-dst", mine: true, overall: 30, teamId: 1 },
     ]);
   });
 

@@ -7,6 +7,7 @@ import { useDraft } from "./state/draft";
 import { useHandcuffAutoTag } from "./state/useHandcuffAutoTag";
 import { usePlayers } from "./state/players";
 import { useTags } from "./state/tags";
+import { TagPickerModal } from "./components/TagPickerModal";
 import { AdminPanel } from "./views/AdminPanel";
 import { BoardsView } from "./views/BoardsView";
 import { DraftDayView } from "./views/DraftDayView";
@@ -28,6 +29,8 @@ export function App() {
   const [sources, setSources] = useState<SourceMeta[]>([]);
   const [view, setView] = useState<View>("sortings");
   const [editingTag, setEditingTag] = useState<Tag | undefined>(undefined);
+  // One tag picker for the whole app — every player surface opens this one.
+  const [tagTarget, setTagTarget] = useState<string | null>(null);
   const { players, byId, error: playersError } = usePlayers();
   const adp = useAdp();
   const signedIn = auth.status === "in";
@@ -101,7 +104,7 @@ export function App() {
         </h1>
         {signedIn && (
           <nav className="app-nav">
-            {navItem("sortings", "Sortings")}
+            {navItem("sortings", "Cheat Sheets")}
             {navItem("sources", "Sources")}
             {navItem("tags", "Tags")}
             {navItem("draft", "Draft day")}
@@ -160,6 +163,7 @@ export function App() {
               playersById={byId}
               adp={adp}
               tagsByPlayer={tags.tagsByPlayer}
+              onTagPlayer={setTagTarget}
               draft={draft}
               layouts={boardLayouts.layouts}
             />
@@ -172,10 +176,22 @@ export function App() {
               playersById={byId}
               adp={adp}
               tagsByPlayer={tags.tagsByPlayer}
+              onTagPlayer={setTagTarget}
               draft={draft}
               onLayoutChanged={boardLayouts.setLayout}
               onSortingCreated={onSortingCreated}
               onBoardDeleted={(id) => setBoards((prev) => prev.filter((b) => b.id !== id))}
+            />
+          )}
+          {tagTarget && (
+            <TagPickerModal
+              playerId={tagTarget}
+              playerName={byId.get(tagTarget)?.name ?? tagTarget}
+              tags={tags.metas}
+              current={tags.tagsByPlayer.get(tagTarget)}
+              onAdd={tags.addPlayerToTag}
+              onCreate={tags.createTagWithPlayer}
+              onClose={() => setTagTarget(null)}
             />
           )}
           {handcuff.toast && (

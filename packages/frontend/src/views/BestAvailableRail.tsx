@@ -2,6 +2,7 @@ import type { BoardLayout, BoardMeta, Pick, Player, TagMeta } from "@drafthelper
 import { bestAvailable, currentTierScarcity, primaryAdp } from "@drafthelper/shared";
 import type { AdpLookup } from "../state/adp";
 import { TagBadges } from "../components/TagBadges";
+import "../components/PlayerRowActions.css";
 import "./BestAvailableRail.css";
 
 interface Props {
@@ -10,11 +11,20 @@ interface Props {
   playersById: Map<string, Player>;
   adp: AdpLookup;
   tagsByPlayer?: Map<string, TagMeta[]>;
+  onTagPlayer?: (playerId: string) => void;
   picks: Map<string, Pick>;
 }
 
 /** Per-position card: current tier scarcity + top remaining players with ADP. */
-export function BestAvailableRail({ boards, layouts, playersById, adp, tagsByPlayer, picks }: Props) {
+export function BestAvailableRail({
+  boards,
+  layouts,
+  playersById,
+  adp,
+  tagsByPlayer,
+  onTagPlayer,
+  picks,
+}: Props) {
   const picked = new Set(picks.keys());
   return (
     <div className="rail">
@@ -51,6 +61,17 @@ export function BestAvailableRail({ boards, layouts, playersById, adp, tagsByPla
                       </span>
                     )}
                     <TagBadges tags={tagsByPlayer?.get(id)} />
+                    {onTagPlayer && (
+                      <button
+                        type="button"
+                        className="tier-tag-btn"
+                        onClick={() => onTagPlayer(id)}
+                        title={`Tag ${playersById.get(id)?.name ?? id}`}
+                        aria-label={`Tag ${playersById.get(id)?.name ?? id}`}
+                      >
+                        ⊕
+                      </button>
+                    )}
                   </li>
                 );
               })}

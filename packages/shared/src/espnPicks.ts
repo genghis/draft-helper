@@ -66,6 +66,8 @@ export interface MappedEspnPick {
   playerId: string;
   mine: boolean;
   overall: number;
+  /** The drafting ESPN team, kept so the running board can name who picked. */
+  teamId: number;
 }
 
 export interface EspnPickMapResult {
@@ -103,6 +105,7 @@ export function mapEspnPicks(
       playerId,
       mine: pick.teamId === request.myTeamId,
       overall: pick.overall,
+      teamId: pick.teamId,
     });
   }
   return { picks, unmapped };

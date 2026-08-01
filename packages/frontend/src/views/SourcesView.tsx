@@ -8,10 +8,10 @@ interface Props {
   onDeleted: (id: string) => void;
 }
 
-/** Immutable imported ranking lists — the raw inputs to sortings. */
+/** Immutable imported ranking lists — the raw inputs to cheat sheets (boards). */
 export function SourcesView({ sources, onImport, onDeleted }: Props) {
   async function remove(source: SourceMeta) {
-    if (!window.confirm(`Delete source “${source.name}”? Sortings already made from it stay.`)) {
+    if (!window.confirm(`Delete source “${source.name}”? Cheat sheets already made from it stay.`)) {
       return;
     }
     await api(`/sources/${source.id}`, { method: "DELETE" });
@@ -22,8 +22,8 @@ export function SourcesView({ sources, onImport, onDeleted }: Props) {
     <section className="sources-view">
       <div className="sources-header">
         <p className="muted">
-          Imported ranking lists. They're immutable — build editable sortings from them on the
-          Sortings tab.
+          Imported ranking lists. They're read-only — build editable cheat sheets from them on the
+          Cheat Sheets tab.
         </p>
         <button type="button" onClick={onImport}>
           + Import source

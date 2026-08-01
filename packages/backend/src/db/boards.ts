@@ -36,6 +36,7 @@ function toMeta(id: string, item: Record<string, unknown>): BoardMeta {
     position: item.position as BoardPosition,
     scoring: item.scoring as ScoringFormat,
     bands: (item.bands as TierBand[]) ?? [],
+    version: (item.version as number | undefined) ?? 0,
     createdAt: item.createdAt as string,
     updatedAt: item.updatedAt as string,
     sourceIds: item.sourceIds as string[] | undefined,
@@ -60,6 +61,7 @@ export async function createBoard(ownerId: string, input: NewBoard): Promise<Boa
           position: input.position,
           scoring: input.scoring,
           bands: input.bands,
+          version: 1,
           createdAt: now,
           updatedAt: now,
           // Omitted when undefined (removeUndefinedValues is on).
@@ -166,13 +168,28 @@ export async function putLayout(
   }
 }
 
-/** Updates name and/or bands (canvas band-boundary edits land here). */
+/**
+ * Updates name and/or bands (canvas band edits land here), guarded by an
+ * optimistic version so two tabs cannot silently clobber each other's tiers —
+ * the whole bands array is replaced on every save, so a stale writer would
+ * otherwise re-tier every player on the board.
+ *
+ * `expectedVersion` is optional: callers that pass nothing keep the old
+ * last-write-wins behaviour (used by non-band updates). Boards predating
+ * versioning have no `version` attribute, so the guard reads it as 0.
+ * Returns null when the board is missing OR the version has moved on.
+ */
 export async function updateBoardMeta(
   boardId: string,
-  changes: { name?: string; bands?: TierBand[] }
+  changes: { name?: string; bands?: TierBand[] },
+  expectedVersion?: number
 ): Promise<BoardMeta | null> {
-  const sets: string[] = ["updatedAt = :now"];
-  const values: Record<string, unknown> = { ":now": new Date().toISOString() };
+  const sets: string[] = ["updatedAt = :now", "version = if_not_exists(version, :zero) + :one"];
+  const values: Record<string, unknown> = {
+    ":now": new Date().toISOString(),
+    ":zero": 0,
+    ":one": 1,
+  };
   if (changes.name !== undefined) {
     sets.push("#n = :name");
     values[":name"] = changes.name;
@@ -187,11 +204,15 @@ export async function updateBoardMeta(
         TableName: TABLE_NAME,
         Key: { pk: `BOARD#${boardId}`, sk: "META" },
         UpdateExpression: `SET ${sets.join(", ")}`,
-        ConditionExpression: "attribute_exists(pk)",
+        ConditionExpression:
+          expectedVersion === undefined
+            ? "attribute_exists(pk)"
+            : "attribute_exists(pk) AND if_not_exists(version, :zero) = :expected",
         ...(changes.name !== undefined
           ? { ExpressionAttributeNames: { "#n": "name" } }
           : {}),
-        ExpressionAttributeValues: values,
+        ExpressionAttributeValues:
+          expectedVersion === undefined ? values : { ...values, ":expected": expectedVersion },
         ReturnValues: "ALL_NEW",
       })
     );

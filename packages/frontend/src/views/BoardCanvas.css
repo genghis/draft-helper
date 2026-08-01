@@ -36,16 +36,64 @@
   background: var(--surface-2);
 }
 
-.canvas-band-label {
+/* The band itself is click-through so chips stay grabbable; only the head
+   takes pointer events. */
+.canvas-band-head {
   position: absolute;
   top: 0.2rem;
   left: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.canvas-band-label {
+  background: none;
+  border: none;
+  padding: 0 0.15rem;
+  cursor: text;
   font-family: "Barlow Condensed", sans-serif;
   font-size: 0.7rem;
   font-weight: 700;
   color: var(--ink-dim);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.canvas-band-label:hover {
+  color: var(--ink);
+}
+
+.canvas-band-input {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  padding: 0 0.15rem;
+  width: 9rem;
+}
+
+.canvas-band-action {
+  background: none;
+  border: none;
+  padding: 0 0.2rem;
+  line-height: 1;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--ink-dim) 55%, transparent);
+  cursor: pointer;
+}
+
+.canvas-band-action:hover {
+  color: var(--brass-strong);
+}
+
+.canvas-band-error {
+  font-size: 0.8rem;
+  color: var(--warn);
 }
 
 .canvas-boundary {

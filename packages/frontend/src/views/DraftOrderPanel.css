@@ -1,0 +1,121 @@
+.draft-order-setup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.draft-order {
+  margin-bottom: 0.85rem;
+}
+
+.draft-order-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.draft-order-size {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.draft-order-size input {
+  width: 4.5rem;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  color: var(--ink);
+}
+
+.draft-order-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.draft-order-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.35rem;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius);
+}
+
+.draft-order-list li.is-mine {
+  border-left-color: var(--brass);
+  background: color-mix(in srgb, var(--brass) 10%, transparent);
+}
+
+.draft-order-slot {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+  min-width: 1.5rem;
+  text-align: right;
+}
+
+.draft-order-list input {
+  flex: 1;
+  max-width: 16rem;
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  color: var(--ink);
+}
+
+.draft-order-mine {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+
+.draft-order-list li.is-mine .draft-order-mine {
+  border-color: var(--brass);
+  color: var(--brass-strong);
+}
+
+.draft-order-alert {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--warn);
+  color: var(--brass-ink);
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.draft-order-unlink {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+
+.draft-order-unlink:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}

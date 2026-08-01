@@ -1,9 +1,12 @@
 import { useMemo, useRef, useState } from "react";
 import type { BoardLayout, BoardMeta, Pick, Player, TagMeta } from "@drafthelper/shared";
-import { searchPlayers } from "@drafthelper/shared";
+import { buildNameIndex, orderWarnings, searchPlayers } from "@drafthelper/shared";
 import type { AdpLookup } from "../state/adp";
 import type { DraftController } from "../state/draft";
 import { BestAvailableRail } from "./BestAvailableRail";
+import { DraftOrderPanel } from "./DraftOrderPanel";
+import { RunningBoard } from "./RunningBoard";
+import "../components/PlayerRowActions.css";
 import "./DraftDayView.css";
 
 interface Props {
@@ -12,6 +15,7 @@ interface Props {
   playersById: Map<string, Player>;
   adp: AdpLookup;
   tagsByPlayer?: Map<string, TagMeta[]>;
+  onTagPlayer?: (playerId: string) => void;
   draft: DraftController;
   layouts: Map<string, BoardLayout>;
 }
@@ -31,6 +35,7 @@ export function DraftDayView({
   playersById,
   adp,
   tagsByPlayer,
+  onTagPlayer,
   draft,
   layouts,
 }: Props) {
@@ -55,12 +60,14 @@ export function DraftDayView({
     return rank;
   }, [layouts]);
 
+  const nameIndex = useMemo(() => buildNameIndex(players), [players]);
+
   const results = useMemo(
     () =>
-      searchPlayers(query, players, rankById).filter(
+      searchPlayers(query, players, rankById, undefined, nameIndex).filter(
         (p) => !draft.picks.has(p.id)
       ),
-    [query, players, rankById, draft.picks]
+    [query, players, rankById, nameIndex, draft.picks]
   );
 
   function showToast(player: Player, mine: boolean) {
@@ -101,6 +108,11 @@ export function DraftDayView({
     [draft.picks]
   );
 
+  const orderIssues = useMemo(
+    () => (draft.order ? orderWarnings([...draft.picks.values()], draft.order) : []),
+    [draft.picks, draft.order]
+  );
+
   const lastMarkedName =
     draft.lastMarked !== null ? playersById.get(draft.lastMarked)?.name : null;
 
@@ -125,6 +137,13 @@ export function DraftDayView({
       <div className={`draft-sync draft-sync-${syncState}`} role="status">
         {syncLabel}
       </div>
+      <DraftOrderPanel
+        order={draft.order}
+        error={draft.orderError}
+        warnings={orderIssues}
+        onStart={draft.startOrder}
+        onChange={draft.saveOrder}
+      />
       <div className="draft-search-bar">
         <input
           ref={inputRef}
@@ -165,6 +184,17 @@ export function DraftDayView({
                 </span>
                 {i === 0 && <kbd className="draft-result-kbd">↵</kbd>}
               </button>
+              {onTagPlayer && (
+                <button
+                  type="button"
+                  className="tier-tag-btn"
+                  onClick={() => onTagPlayer(p.id)}
+                  title={`Tag ${p.name}`}
+                  aria-label={`Tag ${p.name}`}
+                >
+                  ⊕
+                </button>
+              )}
               <button
                 type="button"
                 className="tier-mine-btn"
@@ -190,12 +220,17 @@ export function DraftDayView({
         </div>
       )}
 
+      {draft.order && (
+        <RunningBoard picks={draft.picks} order={draft.order} playersById={playersById} />
+      )}
+
       <BestAvailableRail
         boards={boards}
         layouts={layouts}
         playersById={playersById}
         adp={adp}
         tagsByPlayer={tagsByPlayer}
+        onTagPlayer={onTagPlayer}
         picks={draft.picks}
       />
 

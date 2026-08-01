@@ -43,11 +43,9 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
       return;
     }
     const result = matchEntries(entries, players, scope);
-    setResolutions(
-      Object.fromEntries(
-        result.unmatched.map((u) => [u.entry.rank, u.candidates[0]?.player.id ?? ""])
-      )
-    );
+    // Deliberately empty: every unmatched row starts on "Skip". Pre-selecting the
+    // nearest fuzzy candidate silently wrote wrong players into saved sources.
+    setResolutions({});
     setName(`${sourceLabel} — ${scope} ${scoring}`);
     setStage({ kind: "review", result, sourceLabel });
   }
@@ -91,6 +89,7 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
     const { result, sourceLabel } =
       stage.kind === "review" ? stage : { result: null, sourceLabel: "" };
     if (!result) return <p className="muted">Saving source…</p>;
+    const skipCount = result.unmatched.filter((u) => !resolutions[u.entry.rank]).length;
     return (
       <section className="import-view">
         <h2>Review import</h2>
@@ -104,10 +103,37 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
             ` — ${result.unmatched.length} need${result.unmatched.length === 1 ? "s" : ""} your eye`}
           .
         </p>
+        {result.matched.length > 0 && (
+          <details className="import-matched">
+            <summary>Check the {result.matched.length} automatic matches</summary>
+            <ul>
+              {result.matched.map((m) => (
+                <li key={m.entry.rank}>
+                  <span className="import-source-name">
+                    #{m.entry.rank} {m.entry.name}
+                  </span>
+                  <span className="import-matched-arrow">→</span>
+                  <span>
+                    {m.player.name} ({m.player.team ?? "FA"})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {skipCount > 0 && (
+          <p className="import-warning">
+            {skipCount} highlighted row{skipCount === 1 ? "" : "s"} will be left out of this source
+            — pick a player for any you want to keep.
+          </p>
+        )}
         {result.unmatched.length > 0 && (
           <ul className="import-unmatched">
             {result.unmatched.map((u) => (
-              <li key={u.entry.rank}>
+              <li
+                key={u.entry.rank}
+                className={resolutions[u.entry.rank] ? undefined : "import-unresolved"}
+              >
                 <span className="import-source-name">
                   #{u.entry.rank} {u.entry.name}
                 </span>

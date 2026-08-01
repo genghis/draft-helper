@@ -45,8 +45,49 @@
   gap: 1rem;
 }
 
+.import-unmatched li.import-unresolved {
+  border-left: 3px solid var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius);
+}
+
 .import-source-name {
   font-weight: 600;
+}
+
+.import-warning {
+  color: var(--warn);
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.import-matched summary {
+  cursor: pointer;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+
+.import-matched ul {
+  list-style: none;
+  padding: 0.5rem 0 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  font-size: 0.9rem;
+}
+
+.import-matched li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.import-matched-arrow {
+  color: var(--ink-dim);
 }
 
 .import-error {

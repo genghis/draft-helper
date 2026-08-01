@@ -15,7 +15,15 @@ export function searchPlayers(
   query: string,
   players: Player[],
   rankById?: ReadonlyMap<string, number>,
-  limit = DEFAULT_LIMIT
+  limit = DEFAULT_LIMIT,
+  /**
+   * Optional precomputed normalizeName(player.name) by id. normalizeName does
+   * an NFD pass plus several regexes, so recomputing it for the whole player
+   * universe on every keystroke is the dominant cost in a type-ahead over
+   * thousands of players. Callers that search repeatedly against a stable list
+   * should build this once (see buildNameIndex).
+   */
+  normalizedById?: ReadonlyMap<string, string>
 ): Player[] {
   const q = normalizeName(query);
   if (q.length < MIN_QUERY_LENGTH) return [];
@@ -23,7 +31,7 @@ export function searchPlayers(
 
   const scored: { player: Player; score: number; rank: number }[] = [];
   for (const player of players) {
-    const n = normalizeName(player.name);
+    const n = normalizedById?.get(player.id) ?? normalizeName(player.name);
     let score: number;
     if (n.startsWith(q)) score = 0;
     else if (tokensPrefix(qTokens, n.split(" "))) score = 1;
@@ -48,4 +56,11 @@ function tokensPrefix(qTokens: string[], nameTokens: string[]): boolean {
     i++;
   }
   return true;
+}
+
+/** Precomputes normalized names for repeated searches over a stable player list. */
+export function buildNameIndex(players: Player[]): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const player of players) index.set(player.id, normalizeName(player.name));
+  return index;
 }
