@@ -31,7 +31,7 @@ interface Args {
 }
 
 /**
- * Auto-tags a drafted RB's backup(s) with a "Handcuffs" tag. Fires regardless
+ * Auto-tags a drafted RB's backup(s) with a "Handcuff" tag. Fires regardless
  * of which tab is open (picks/layouts are lifted to App), so it stays in sync
  * whether you mark "Mine" from the Sortings tier list or the Draft day search.
  */
@@ -127,7 +127,7 @@ export function useHandcuffAutoTag({
           const meta = await api<TagMeta>("/tags", {
             method: "POST",
             body: {
-              label: "Handcuffs",
+              label: "Handcuff",
               color: "amber",
               playerIds: result.playerIds,
               autoManaged: "handcuff",

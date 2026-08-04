@@ -177,7 +177,7 @@ const tag = (overrides: Partial<Tag>): Tag => ({
   meta: {
     id: "t1",
     ownerId: "u1",
-    label: "Handcuffs",
+    label: "Handcuff",
     color: "amber",
     playerCount: 0,
     version: 1,
