@@ -277,9 +277,6 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
           Fetch Boris Chen tiers
         </button>
       </div>
-      {scope === "OVERALL" && scoring === "HALF" && (
-        <p className="muted">Boris Chen publishes the overall list in STD and PPR only.</p>
-      )}
       <label className="import-file">
         <span>Upload a rankings file</span>
         <input

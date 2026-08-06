@@ -14,9 +14,7 @@ const FORMAT_SENSITIVE = new Set(["RB", "WR", "TE", "FLX", "OVERALL"]);
 
 /**
  * fftiers names the full-draft list "ALL"; our scope for the same thing is
- * OVERALL. Only STD (weekly-ALL.csv) and PPR (weekly-ALL-PPR.csv) are
- * published -- there is no HALF variant, so that combination legitimately
- * misses and the caller reports it rather than substituting another format.
+ * OVERALL.
  */
 const FILE_POSITION: Partial<Record<string, string>> = { OVERALL: "ALL" };
 
@@ -26,20 +24,50 @@ const FORMAT_SUFFIX: Record<ScoringFormat, string> = {
   PPR: "-PPR",
 };
 
+/**
+ * The overall list suffixes half-PPR differently from every per-position file:
+ * weekly-RB-HALF.csv but weekly-ALL-HALF-PPR.csv. Naming drifts season to
+ * season, so this is an ordered list of suffixes to try, not a single value.
+ */
+const HALF_SUFFIXES: Partial<Record<string, string[]>> = {
+  OVERALL: ["-HALF-PPR", "-HALF"],
+};
+
+/**
+ * Every URL worth trying for a scope and scoring, in priority order. Pure, so
+ * the naming quirks are pinned by tests instead of rediscovered against the
+ * live bucket.
+ */
+export function borisChenUrls(
+  position: BoardPosition,
+  scoring: ScoringFormat,
+  base = process.env.BORIS_BASE ?? DEFAULT_BASE,
+  templates = (process.env.BORIS_FILES ?? DEFAULT_FILES).split(",")
+): string[] {
+  const formats = !FORMAT_SENSITIVE.has(position)
+    ? [""]
+    : scoring === "HALF"
+      ? (HALF_SUFFIXES[position] ?? [FORMAT_SUFFIX.HALF])
+      : [FORMAT_SUFFIX[scoring]];
+
+  const urls: string[] = [];
+  for (const template of templates) {
+    for (const fmt of formats) {
+      const file = template
+        .trim()
+        .replace("{pos}", FILE_POSITION[position] ?? position)
+        .replace("{fmt}", fmt);
+      urls.push(`${base}/${file}`);
+    }
+  }
+  return urls;
+}
+
 export async function fetchBorisChen(
   position: BoardPosition,
   scoring: ScoringFormat
 ): Promise<{ content: string; url: string } | null> {
-  const base = process.env.BORIS_BASE ?? DEFAULT_BASE;
-  const templates = (process.env.BORIS_FILES ?? DEFAULT_FILES).split(",");
-  const fmt = FORMAT_SENSITIVE.has(position) ? FORMAT_SUFFIX[scoring] : "";
-
-  for (const template of templates) {
-    const file = template
-      .trim()
-      .replace("{pos}", FILE_POSITION[position] ?? position)
-      .replace("{fmt}", fmt);
-    const url = `${base}/${file}`;
+  for (const url of borisChenUrls(position, scoring)) {
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (res.ok) return { content: await res.text(), url };
   }
