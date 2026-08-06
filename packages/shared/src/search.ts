@@ -1,5 +1,5 @@
 import { normalizeName } from "./normalize.js";
-import type { Player } from "./types.js";
+import type { Player, Position } from "./types.js";
 
 const DEFAULT_LIMIT = 8;
 /** Queries shorter than this (normalized) return nothing — too easy to mis-mark. */
@@ -63,4 +63,16 @@ export function buildNameIndex(players: Player[]): Map<string, string> {
   const index = new Map<string, string>();
   for (const player of players) index.set(player.id, normalizeName(player.name));
   return index;
+}
+
+/**
+ * Whether a player passes a position filter. An empty selection means "no
+ * filter", so everything passes; a player with no known position is only
+ * excluded once a filter is actually active.
+ */
+export function matchesPosition(
+  position: Position | undefined,
+  selected: ReadonlySet<Position>
+): boolean {
+  return selected.size === 0 || (position !== undefined && selected.has(position));
 }

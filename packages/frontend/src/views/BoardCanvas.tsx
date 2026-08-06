@@ -17,13 +17,14 @@ import {
   RANK_SPACING,
   removeBand,
   renameBand,
+  matchesPosition,
   splitBand,
   spreadPlacements,
 } from "@drafthelper/shared";
 import { api, ApiError } from "../api/client";
 import { useLayoutSaver } from "../state/layoutSaver";
 import { TagDots } from "../components/TagBadges";
-import { matchesPosition, PositionFilter } from "../components/PositionFilter";
+import { PositionFilter } from "../components/PositionFilter";
 import "./BoardCanvas.css";
 
 interface Props {
@@ -226,6 +227,23 @@ export function BoardCanvas({
     saveBands(renameBand(bands, index, label.slice(0, 40)));
   }
 
+  /**
+   * Pointer capture is per-pointerId, so a second touch or a keyboard-activated
+   * chip can change the filter mid-drag. The dragged chip then unmounts while
+   * drag.current still points at it, and pointer moves would keep repositioning
+   * -- and saving -- a player nobody can see. Drop the drag instead.
+   */
+  function changePosFilter(next: Set<Position>) {
+    const active = drag.current;
+    if (
+      active?.kind === "chip" &&
+      !matchesPosition(playersById.get(active.id)?.position, next)
+    ) {
+      drag.current = null;
+    }
+    setPosFilter(next);
+  }
+
   function autoArrange() {
     const next = spreadPlacements(placements);
     setPlacements(next);
@@ -235,7 +253,19 @@ export function BoardCanvas({
   return (
     <div className="canvas-wrap">
       <div className="canvas-toolbar">
-        <button type="button" className="secondary" onClick={autoArrange}>
+        <button
+          type="button"
+          className="secondary"
+          onClick={autoArrange}
+          // It re-lanes every placement, hidden ones included, and saves. Doing
+          // that to players you cannot see is not something to discover later.
+          disabled={posFilter.size > 0}
+          title={
+            posFilter.size > 0
+              ? "Clear the position filter first — auto-arrange moves every player, including hidden ones"
+              : "Re-space players into lanes"
+          }
+        >
           Auto-arrange
         </button>
         <button
@@ -252,7 +282,11 @@ export function BoardCanvas({
         {bandError && <span className="canvas-band-error">{bandError}</span>}
       </div>
       <div className="canvas-toolbar">
-        <PositionFilter selected={posFilter} onChange={setPosFilter} counts={positionCounts} />
+        <PositionFilter
+          selected={posFilter}
+          onChange={changePosFilter}
+          counts={positionCounts}
+        />
         {posFilter.size > 0 && (
           <span className="muted">
             Filtered — tier bands still span the hidden players, and dragging still saves.

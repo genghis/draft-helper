@@ -9,10 +9,10 @@ import type {
   Position,
   TagMeta,
 } from "@drafthelper/shared";
-import { adpDivergence, adpValue, boardAdpRanks, highDisagreementIds, primaryAdp, projectBands } from "@drafthelper/shared";
+import { adpDivergence, adpValue, boardAdpRanks, highDisagreementIds, primaryAdp, projectBands, matchesPosition} from "@drafthelper/shared";
 import type { AdpLookup } from "../state/adp";
 import { TagBadges } from "../components/TagBadges";
-import { matchesPosition, PositionFilter } from "../components/PositionFilter";
+import { PositionFilter } from "../components/PositionFilter";
 import { PositionBadge } from "../components/PositionBadge";
 import "../components/PlayerRowActions.css";
 import "./TierListView.css";
@@ -87,8 +87,10 @@ export function TierListView({
         // Counts what you are actually looking at: with RB selected, "3 left"
         // must mean three running backs, not three players of any position.
         const remaining = visible.filter((id) => !picks.has(id)).length;
-        // A tier with nothing at the filtered positions is noise, not information.
-        if (visible.length === 0) {
+        // A tier with nothing at the filtered positions is noise. An empty tier
+        // with NO filter is different -- "+ Add tier at bottom" makes one on
+        // purpose, and hiding it would make the button look broken.
+        if (posFilter.size > 0 && visible.length === 0) {
           // Ranks still advance so the numbers keep matching the full board.
           overallRank += group.playerIds.length;
           return null;

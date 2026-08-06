@@ -1,7 +1,7 @@
 import type { Position } from "@drafthelper/shared";
 import "./PositionFilter.css";
 
-export const FILTERABLE_POSITIONS: Position[] = ["QB", "RB", "WR", "TE", "K", "DST"];
+const FILTERABLE_POSITIONS: Position[] = ["QB", "RB", "WR", "TE", "K", "DST"];
 
 interface Props {
   /** Empty means no filter — everything shows. */
@@ -55,10 +55,3 @@ export function PositionFilter({ selected, onChange, counts }: Props) {
   );
 }
 
-/** Whether a player passes the current filter; an empty filter passes everything. */
-export function matchesPosition(
-  position: Position | undefined,
-  selected: ReadonlySet<Position>
-): boolean {
-  return selected.size === 0 || (position !== undefined && selected.has(position));
-}

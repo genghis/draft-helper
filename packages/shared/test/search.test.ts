@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { searchPlayers } from "../src/search.js";
+import { matchesPosition, searchPlayers } from "../src/search.js";
 import type { Player } from "../src/types.js";
 
 const players: Player[] = [
@@ -56,5 +56,24 @@ describe("searchPlayers", () => {
 
   it("caps results at the limit", () => {
     expect(searchPlayers("ja", players, undefined, 2)).toHaveLength(2);
+  });
+});
+
+describe("matchesPosition", () => {
+  it("treats an empty selection as no filter", () => {
+    expect(matchesPosition("RB", new Set())).toBe(true);
+    expect(matchesPosition(undefined, new Set())).toBe(true);
+  });
+
+  it("passes only the selected positions", () => {
+    const sel = new Set(["RB", "WR"] as const);
+    expect(matchesPosition("RB", sel)).toBe(true);
+    expect(matchesPosition("WR", sel)).toBe(true);
+    expect(matchesPosition("QB", sel)).toBe(false);
+  });
+
+  it("excludes a player with no known position once a filter is active", () => {
+    // Only when filtering: an unknown position must not masquerade as a match.
+    expect(matchesPosition(undefined, new Set(["RB"] as const))).toBe(false);
   });
 });

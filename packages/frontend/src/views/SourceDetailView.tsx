@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Player, Position, Source, SourceMeta } from "@drafthelper/shared";
 import { api } from "../api/client";
-import { matchesPosition, PositionFilter } from "../components/PositionFilter";
+import { matchesPosition } from "@drafthelper/shared";
+import { PositionFilter } from "../components/PositionFilter";
 import { PositionBadge } from "../components/PositionBadge";
 import "./SourceDetailView.css";
 

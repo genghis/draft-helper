@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { DraftOrder, Pick, Player, Position } from "@drafthelper/shared";
-import { buildBoard, picksMade, turnStatus } from "@drafthelper/shared";
-import { matchesPosition, PositionFilter } from "../components/PositionFilter";
+import { buildBoard, picksMade, turnStatus, matchesPosition} from "@drafthelper/shared";
+import { PositionFilter } from "../components/PositionFilter";
 import { PositionBadge } from "../components/PositionBadge";
 import "./RunningBoard.css";
 
@@ -20,6 +20,14 @@ export function RunningBoard({ picks, order, playersById }: Props) {
   // Snake-inferred rows are a guess when picks were marked by hand; say so once
   // rather than casting doubt on every row.
   const inferred = rows.filter((r) => !r.attributed).length;
+  const visible = rows.filter((row) =>
+    matchesPosition(playersById.get(row.playerId)?.position, posFilter)
+  );
+  const counts = new Map<Position, number>();
+  for (const row of rows) {
+    const pos = playersById.get(row.playerId)?.position;
+    if (pos) counts.set(pos, (counts.get(pos) ?? 0) + 1);
+  }
 
   return (
     <section className="running-board">
@@ -53,16 +61,16 @@ export function RunningBoard({ picks, order, playersById }: Props) {
         {rows.length > 0 && <span className="muted">{rows.length} picks in</span>}
       </header>
       {rows.length > 0 && (
-        <PositionFilter selected={posFilter} onChange={setPosFilter} />
+        <PositionFilter selected={posFilter} onChange={setPosFilter} counts={counts} />
       )}
 
       {rows.length === 0 ? (
         <p className="muted">No picks yet.</p>
+      ) : visible.length === 0 ? (
+        <p className="muted">No picks yet at those positions.</p>
       ) : (
         <ol className="running-board-list">
-          {rows
-            .filter((row) => matchesPosition(playersById.get(row.playerId)?.position, posFilter))
-            .map((row) => (
+          {visible.map((row) => (
             <li key={row.playerId} className={row.mine ? "is-mine" : undefined}>
               <span className="running-board-num">
                 {row.round}.{String(row.pick).padStart(2, "0")}

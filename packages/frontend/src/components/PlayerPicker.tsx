@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import type { Player, Position } from "@drafthelper/shared";
-import { buildNameIndex, MIN_QUERY_LENGTH, searchPlayers } from "@drafthelper/shared";
+import { buildNameIndex, matchesPosition, MIN_QUERY_LENGTH, searchPlayers } from "@drafthelper/shared";
+import { PositionFilter } from "./PositionFilter";
 import "./PlayerPicker.css";
 
-const POSITIONS: Position[] = ["QB", "RB", "WR", "TE", "K", "DST"];
 /** Rows rendered at once; the full universe is thousands of players. */
 const VISIBLE_LIMIT = 100;
 
@@ -22,15 +22,15 @@ interface Props {
  */
 export function PlayerPicker({ players, selected, onAdd }: Props) {
   const [query, setQuery] = useState("");
-  const [position, setPosition] = useState<Position | "ALL">("ALL");
+  const [positions, setPositions] = useState<Set<Position>>(new Set());
 
   // Built once per player list, not per keystroke — normalizing thousands of
   // names on every character was the whole cost of this search.
   const nameIndex = useMemo(() => buildNameIndex(players), [players]);
 
   const pool = useMemo(
-    () => (position === "ALL" ? players : players.filter((p) => p.position === position)),
-    [players, position]
+    () => players.filter((p) => matchesPosition(p.position, positions)),
+    [players, positions]
   );
 
   // searchPlayers returns [] below MIN_QUERY_LENGTH, so browse the pool until
@@ -56,25 +56,7 @@ export function PlayerPicker({ players, selected, onAdd }: Props) {
         placeholder="Search players by name…"
         aria-label="Search players"
       />
-      <div className="player-picker-filters">
-        <button
-          type="button"
-          className={position === "ALL" ? "player-picker-chip is-on" : "player-picker-chip"}
-          onClick={() => setPosition("ALL")}
-        >
-          All
-        </button>
-        {POSITIONS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            className={position === p ? "player-picker-chip is-on" : "player-picker-chip"}
-            onClick={() => setPosition(p)}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
+      <PositionFilter selected={positions} onChange={setPositions} />
 
       {shown.length === 0 ? (
         <p className="muted">No players match.</p>
