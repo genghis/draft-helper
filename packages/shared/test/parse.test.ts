@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseBorisChenCsv, parseBorisChenText } from "../src/parse/borischen.js";
+import {
+  detectDelimiter,
+  leadingIndexOffset,
+  parseBorisChenCsv,
+  parseBorisChenText,
+} from "../src/parse/borischen.js";
 import { parseRankings } from "../src/parse/generic.js";
 
 const fixture = (name: string) =>
@@ -76,5 +81,53 @@ describe("parseRankings", () => {
   it("keeps real names that start with a position abbreviation", () => {
     const entries = parseRankings("Kenneth Walker\nTerry McLaurin\nKyren Williams");
     expect(entries).toHaveLength(3);
+  });
+});
+
+describe("detectDelimiter", () => {
+  it("picks whichever delimiter actually splits the header", () => {
+    expect(detectDelimiter("a,b,c")).toBe(",");
+    expect(detectDelimiter("a\tb\tc")).toBe("\t");
+    // A tab export whose names contain commas must still read as tab-separated.
+    expect(detectDelimiter("Player.Name\tTier\tNotes, extra")).toBe("\t");
+    expect(detectDelimiter("single")).toBe(",");
+  });
+});
+
+describe("leadingIndexOffset", () => {
+  it("detects R's unnamed row-name column", () => {
+    expect(leadingIndexOffset(["a", "b"], ["1", "x", "y"])).toBe(1);
+    expect(leadingIndexOffset(["a", "b"], ["x", "y"])).toBe(0);
+    // A short/ragged data row must never produce a negative shift.
+    expect(leadingIndexOffset(["a", "b", "c"], ["x"])).toBe(0);
+  });
+});
+
+describe("real-world ranking exports", () => {
+  it("parses a tab-separated fftiers export with an unnamed rank column", () => {
+    const entries = parseRankings(fixture("fftiers-tab.csv"));
+    expect(entries).toHaveLength(200);
+    // The row-index column must not be mistaken for the player name.
+    expect(entries[0]).toEqual({ name: "Ja'Marr Chase", rank: 1, tier: 1 });
+    expect(entries.every((e) => /[A-Za-z]/.test(e.name))).toBe(true);
+    expect(entries.every((e) => Number.isFinite(e.rank) && e.rank > 0)).toBe(true);
+    // Tiers are real and increase down the list.
+    expect(new Set(entries.map((e) => e.tier)).size).toBeGreaterThan(3);
+    expect(entries[entries.length - 1]!.tier).toBeGreaterThan(entries[0]!.tier);
+  });
+
+  it("parses a quoted comma FantasyPros export", () => {
+    const entries = parseRankings(fixture("fantasypros.csv"));
+    expect(entries).toHaveLength(847);
+    expect(entries[0]).toEqual({ name: "Jahmyr Gibbs", rank: 1, tier: 1 });
+    // Ranks come from the RK column, not row order, and stay unique.
+    expect(new Set(entries.map((e) => e.rank)).size).toBe(entries.length);
+    expect(entries.some((e) => e.name === "San Francisco 49ers")).toBe(true);
+  });
+
+  it("keeps hyphenated and apostrophe names intact", () => {
+    const entries = parseRankings(fixture("fantasypros.csv"));
+    expect(entries.some((e) => e.name === "Jaxon Smith-Njigba")).toBe(true);
+    expect(entries.some((e) => e.name.includes("'"))).toBe(true);
   });
 });

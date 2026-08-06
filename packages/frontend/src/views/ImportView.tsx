@@ -50,6 +50,29 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
     setStage({ kind: "review", result, sourceLabel });
   }
 
+  /** Guard against a mis-picked file: rankings exports are tens of KB, not MB. */
+  const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset immediately so picking the same file twice still fires a change.
+    e.target.value = "";
+    if (!file) return;
+    setError(null);
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(`That file is ${Math.round(file.size / 1024 / 1024)} MB — rankings exports are far smaller. Check you picked the right one.`);
+      return;
+    }
+    try {
+      const text = await file.text();
+      // Strip a UTF-8 BOM: Excel writes one, and it would corrupt the first
+      // header cell so the name column is never found.
+      startReview(text.replace(/^\uFEFF/, ""), file.name.replace(/\.[^.]+$/, ""));
+    } catch {
+      setError("Couldn't read that file.");
+    }
+  }
+
   async function fetchBorisChen() {
     setError(null);
     try {
@@ -198,9 +221,17 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
           </button>
         </div>
       )}
+      <label className="import-file">
+        <span>Upload a rankings file</span>
+        <input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" onChange={onFile} />
+        <span className="muted">
+          CSV or tab-separated, from FantasyPros, fftiers or a spreadsheet.
+        </span>
+      </label>
+
       <p className="muted">
         {scope === "OVERALL"
-          ? "Paste an overall/full-draft ranking (tiers, CSV, or a ranked list):"
+          ? "…or paste an overall/full-draft ranking (tiers, CSV, or a ranked list):"
           : "…or paste tiers / CSV / a ranked list:"}
       </p>
       <textarea

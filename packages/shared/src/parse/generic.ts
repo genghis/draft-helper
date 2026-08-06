@@ -1,5 +1,11 @@
 import type { ParsedEntry } from "../types.js";
-import { parseBorisChenCsv, parseBorisChenText, splitCsvLine } from "./borischen.js";
+import {
+  detectDelimiter,
+  leadingIndexOffset,
+  parseBorisChenCsv,
+  parseBorisChenText,
+  splitCsvLine,
+} from "./borischen.js";
 
 function headerIndex(header: string[], patterns: RegExp[]): number {
   return header.findIndex((h) => patterns.some((p) => p.test(h)));
@@ -20,20 +26,23 @@ function isJunkName(name: string): boolean {
 /** Generic CSV with a header row naming a player/name column. */
 function parseHeaderedCsv(content: string): ParsedEntry[] {
   const lines = content.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2 || !lines[0]!.includes(",")) return [];
-  const header = splitCsvLine(lines[0]!).map((h) => h.trim().toLowerCase());
+  if (lines.length < 2) return [];
+  const delimiter = detectDelimiter(lines[0]!);
+  if (!lines[0]!.includes(delimiter)) return [];
+  const header = splitCsvLine(lines[0]!, delimiter).map((h) => h.trim().toLowerCase());
   const nameCol = headerIndex(header, [/player/, /^name$/]);
   if (nameCol === -1) return [];
   const rankCol = headerIndex(header, [/^(rank|rk|overall|ovr)$/]);
   const tierCol = headerIndex(header, [/tier/]);
+  const offset = leadingIndexOffset(header, splitCsvLine(lines[1]!, delimiter));
 
   const entries: ParsedEntry[] = [];
   for (const line of lines.slice(1)) {
-    const fields = splitCsvLine(line);
-    const name = fields[nameCol]?.trim();
+    const fields = splitCsvLine(line, delimiter);
+    const name = fields[nameCol + offset]?.trim();
     if (!name || isJunkName(name)) continue;
-    const rank = rankCol >= 0 ? Number(fields[rankCol]) : NaN;
-    const tier = tierCol >= 0 ? Number(fields[tierCol]) : NaN;
+    const rank = rankCol >= 0 ? Number(fields[rankCol + offset]) : NaN;
+    const tier = tierCol >= 0 ? Number(fields[tierCol + offset]) : NaN;
     entries.push({
       name,
       rank: Number.isFinite(rank) ? rank : entries.length + 1,
