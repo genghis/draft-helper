@@ -5,6 +5,7 @@ import type {
   ParsedEntry,
   Player,
 } from "./types.js";
+import { canonicalTeamAbbrev } from "./espnPicks.js";
 
 const SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
 const FLEX_POSITIONS = new Set(["RB", "WR", "TE"]);
@@ -63,6 +64,26 @@ function looksLikeDst(normalized: string): boolean {
 }
 
 /**
+ * Narrows a candidate set using the position/team a row declared, when it
+ * declared any. Only ever narrows to a NON-empty set: a stale team on an
+ * otherwise-correct row must not throw the match away, and a source's idea of
+ * where a player plays is weaker evidence than the name itself.
+ */
+function refine(candidates: Player[], entry: ParsedEntry): Player[] {
+  let out = candidates;
+  if (entry.position) {
+    const byPos = out.filter((p) => p.position === entry.position);
+    if (byPos.length > 0) out = byPos;
+  }
+  if (entry.team) {
+    const want = canonicalTeamAbbrev(entry.team);
+    const byTeam = out.filter((p) => p.team && canonicalTeamAbbrev(p.team) === want);
+    if (byTeam.length > 0) out = byTeam;
+  }
+  return out;
+}
+
+/**
  * Match parsed source rows against the canonical player list:
  * exact normalized name -> nickname variant -> unambiguous 1-edit typo ->
  * DST mascot fallback -> human review with ranked candidates.
@@ -90,9 +111,16 @@ export function matchEntries(
       continue;
     }
     if (exact.length > 1) {
+      // Two players really do share a name; the row's own position/team can
+      // settle it without sending the user to a dropdown.
+      const refined = refine(exact, entry);
+      if (refined.length === 1) {
+        result.matched.push({ entry, player: refined[0]! });
+        continue;
+      }
       result.unmatched.push({
         entry,
-        candidates: exact.map((player) => ({ player, distance: 0 })),
+        candidates: refined.map((player) => ({ player, distance: 0 })),
       });
       continue;
     }
@@ -101,6 +129,13 @@ export function matchEntries(
     if (nickname.length === 1) {
       result.matched.push({ entry, player: nickname[0]! });
       continue;
+    }
+    if (nickname.length > 1) {
+      const refined = refine(nickname, entry);
+      if (refined.length === 1) {
+        result.matched.push({ entry, player: refined[0]! });
+        continue;
+      }
     }
 
     // DST rows often arrive as "Broncos D/ST" or bare mascots; match on the
@@ -117,7 +152,10 @@ export function matchEntries(
       }
     }
 
-    const scored: MatchCandidate[] = pool
+    // Fuzzy matching searches only the plausible players when the row says
+    // where they play, so a WR typo can never resolve to a similarly-spelled QB.
+    const searchPool = entry.position || entry.team ? refine(pool, entry) : pool;
+    const scored: MatchCandidate[] = searchPool
       .map((player) => ({ player, distance: levenshtein(norm, normalizeName(player.name)) }))
       .sort((a, b) => a.distance - b.distance)
       .slice(0, MAX_CANDIDATES);

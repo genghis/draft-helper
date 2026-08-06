@@ -173,6 +173,10 @@ export interface ParsedEntry {
   name: string;
   rank: number;
   tier: number;
+  /** Present when the source states it (ESPN's PDF does); used to disambiguate matches. */
+  position?: Position;
+  /** NFL team abbreviation as the source wrote it; canonicalized at match time. */
+  team?: string;
 }
 
 export interface MatchCandidate {

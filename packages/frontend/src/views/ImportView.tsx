@@ -3,13 +3,15 @@ import type {
   BoardPosition,
   MatchResult,
   MatchedEntry,
+  ParsedEntry,
   Player,
   RankedPlayer,
   ScoringFormat,
   SourceMeta,
 } from "@drafthelper/shared";
-import { matchEntries, parseRankings } from "@drafthelper/shared";
+import { looksLikeEspnPdf, matchEntries, parseEspnPdfLines, parseRankings } from "@drafthelper/shared";
 import { api } from "../api/client";
+import { readPdfText } from "../lib/readPdfText";
 import "./ImportView.css";
 
 const SCOPES: BoardPosition[] = ["OVERALL", "QB", "RB", "WR", "TE", "FLX", "K", "DST"];
@@ -33,11 +35,16 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
   const [name, setName] = useState("");
   const [stage, setStage] = useState<Stage>({ kind: "pick" });
   const [error, setError] = useState<string | null>(null);
+  /** Set while a PDF is being read; the engine loads on demand and is not instant. */
+  const [busy, setBusy] = useState<string | null>(null);
   // review-stage selections: entry rank -> chosen playerId ("" = skip)
   const [resolutions, setResolutions] = useState<Record<number, string>>({});
 
   function startReview(content: string, sourceLabel: string) {
-    const entries = parseRankings(content);
+    review(parseRankings(content), sourceLabel);
+  }
+
+  function review(entries: ParsedEntry[], sourceLabel: string) {
     if (entries.length === 0) {
       setError("Couldn't find any players in that content.");
       return;
@@ -63,13 +70,28 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
       setError(`That file is ${Math.round(file.size / 1024 / 1024)} MB — rankings exports are far smaller. Check you picked the right one.`);
       return;
     }
+    const label = file.name.replace(/\.[^.]+$/, "");
     try {
+      if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") {
+        setBusy("Reading PDF…");
+        const lines = await readPdfText(file);
+        if (!looksLikeEspnPdf(lines)) {
+          setError(
+            "That PDF doesn't look like a rankings list. Only ESPN's printable rankings are supported — for anything else, export CSV."
+          );
+          return;
+        }
+        review(parseEspnPdfLines(lines), label);
+        return;
+      }
       const text = await file.text();
       // Strip a UTF-8 BOM: Excel writes one, and it would corrupt the first
       // header cell so the name column is never found.
-      startReview(text.replace(/^\uFEFF/, ""), file.name.replace(/\.[^.]+$/, ""));
+      startReview(text.replace(/^\uFEFF/, ""), label);
     } catch {
       setError("Couldn't read that file.");
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -223,9 +245,14 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
       )}
       <label className="import-file">
         <span>Upload a rankings file</span>
-        <input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" onChange={onFile} />
+        <input
+          type="file"
+          accept=".csv,.tsv,.txt,.pdf,text/csv,text/plain,application/pdf"
+          onChange={onFile}
+          disabled={busy !== null}
+        />
         <span className="muted">
-          CSV or tab-separated, from FantasyPros, fftiers or a spreadsheet.
+          {busy ?? "CSV, tab-separated, or ESPN's printable rankings PDF."}
         </span>
       </label>
 

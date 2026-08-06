@@ -9,4 +9,5 @@ export * from "./draftOrder.js";
 export * from "./tiers.js";
 export * from "./parse/borischen.js";
 export * from "./parse/espnDraft.js";
+export * from "./parse/espnPdf.js";
 export * from "./parse/generic.js";
