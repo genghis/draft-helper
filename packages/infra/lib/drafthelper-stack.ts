@@ -99,8 +99,14 @@ export class DraftHelperStack extends Stack {
       environment: { SITE_BUCKET: siteBucket.bucketName },
     });
     siteBucket.grantPut(refreshFn);
+    // Every 4 hours through the season. Rosters churn constantly in camp and
+    // preseason, and a player signed the day before a draft is invisible in
+    // search and import until the next refresh — a weekly cadence made that
+    // window a week wide. Note Sleeper asks that their ~15 MB dump be fetched
+    // at most about daily; this is 6x that, so if they ever start throttling
+    // us, this rate is the first thing to look at.
     new events.Rule(this, "PlayersRefreshSchedule", {
-      schedule: events.Schedule.rate(Duration.days(7)),
+      schedule: events.Schedule.rate(Duration.hours(4)),
       targets: [new targets.LambdaFunction(refreshFn)],
     });
 
