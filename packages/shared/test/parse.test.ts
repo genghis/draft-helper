@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   detectDelimiter,
   leadingIndexOffset,
+  parsePositionCell,
   parseBorisChenCsv,
   parseBorisChenText,
 } from "../src/parse/borischen.js";
@@ -144,7 +145,8 @@ describe("real-world ranking exports", () => {
     const entries = parseRankings(fixture("fftiers-tab.csv"));
     expect(entries).toHaveLength(200);
     // The row-index column must not be mistaken for the player name.
-    expect(entries[0]).toEqual({ name: "Ja'Marr Chase", rank: 1, tier: 1 });
+    // Also carries a Position column, which the parser now reads.
+    expect(entries[0]).toMatchObject({ name: "Ja'Marr Chase", rank: 1, tier: 1, position: "WR" });
     expect(entries.every((e) => /[A-Za-z]/.test(e.name))).toBe(true);
     expect(entries.every((e) => Number.isFinite(e.rank) && e.rank > 0)).toBe(true);
     // Tiers are real and increase down the list.
@@ -155,7 +157,13 @@ describe("real-world ranking exports", () => {
   it("parses a quoted comma FantasyPros export", () => {
     const entries = parseRankings(fixture("fantasypros.csv"));
     expect(entries).toHaveLength(847);
-    expect(entries[0]).toEqual({ name: "Jahmyr Gibbs", rank: 1, tier: 1 });
+    expect(entries[0]).toMatchObject({
+      name: "Jahmyr Gibbs",
+      rank: 1,
+      tier: 1,
+      position: "RB",
+      team: "DET",
+    });
     // Ranks come from the RK column, not row order, and stay unique.
     expect(new Set(entries.map((e) => e.rank)).size).toBe(entries.length);
     expect(entries.some((e) => e.name === "San Francisco 49ers")).toBe(true);
@@ -195,5 +203,49 @@ describe("malformed exports fail honestly rather than inventing players", () => 
     // shifted column yields a real name tells them apart.
     const csv = "Rank,Player,Tier\n1,Ja'Marr Chase,1,notes\n2,Bijan Robinson,1,more";
     expect(parseRankings(csv).map((e) => e.name)).toEqual(["Ja'Marr Chase", "Bijan Robinson"]);
+  });
+});
+
+describe("parsePositionCell", () => {
+  it("reads the shapes sources actually publish", () => {
+    expect(parsePositionCell("RB")).toBe("RB");
+    // FantasyPros attaches the positional rank.
+    expect(parsePositionCell("RB1")).toBe("RB");
+    expect(parsePositionCell("wr12")).toBe("WR");
+    expect(parsePositionCell("D/ST")).toBe("DST");
+    expect(parsePositionCell("DEF")).toBe("DST");
+    expect(parsePositionCell("PK")).toBe("K");
+  });
+
+  it("returns undefined rather than guessing", () => {
+    // A wrong position now vetoes matches, so an unknown cell must stay silent.
+    expect(parsePositionCell("IDP")).toBeUndefined();
+    expect(parsePositionCell("")).toBeUndefined();
+    expect(parsePositionCell(undefined)).toBeUndefined();
+    expect(parsePositionCell("99")).toBeUndefined();
+  });
+});
+
+describe("position and team are read from columns sources already publish", () => {
+  it("captures them from a FantasyPros export", () => {
+    const entries = parseRankings(fixture("fantasypros.csv"));
+    expect(entries[0]).toMatchObject({ name: "Jahmyr Gibbs", position: "RB", team: "DET" });
+    // Every row, not just the first.
+    expect(entries.every((e) => e.position !== undefined)).toBe(true);
+  });
+
+  it("captures position from the fftiers overall list", () => {
+    const entries = parseRankings(fixture("fftiers-overall.csv"));
+    expect(entries).toHaveLength(200);
+    expect(entries[0]).toMatchObject({ name: "Ja'Marr Chase", rank: 1, tier: 1, position: "WR" });
+    // This list carries real tiers, unlike the ESPN PDF.
+    expect(Math.max(...entries.map((e) => e.tier))).toBeGreaterThan(10);
+    expect(entries.every((e) => e.position !== undefined)).toBe(true);
+  });
+
+  it("leaves them undefined when the source omits them", () => {
+    const entries = parseRankings("Rank,Player,Tier\n1,Ja'Marr Chase,1");
+    expect(entries[0]!.position).toBeUndefined();
+    expect(entries[0]!.team).toBeUndefined();
   });
 });

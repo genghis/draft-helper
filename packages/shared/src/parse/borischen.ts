@@ -1,4 +1,4 @@
-import type { ParsedEntry } from "../types.js";
+import type { ParsedEntry, Position } from "../types.js";
 
 /** Parses "Tier 1: A, B, C" lines; rank is order of appearance. */
 export function parseBorisChenText(text: string): ParsedEntry[] {
@@ -16,6 +16,29 @@ export function parseBorisChenText(text: string): ParsedEntry[] {
 }
 
 export type Delimiter = "," | "\t";
+
+/**
+ * Reads a position cell from a ranking export. Sources write it several ways:
+ * bare ("RB"), with the positional rank attached ("RB1", "WR12" -- FantasyPros
+ * does this), or as a defense ("DST", "D/ST"). Anything unrecognised yields
+ * undefined rather than a guess, since a wrong position now vetoes matches.
+ */
+export function parsePositionCell(cell: string | undefined): Position | undefined {
+  if (!cell) return undefined;
+  const bare = cell.trim().toUpperCase().replace(/\d+$/, "");
+  const map: Record<string, Position> = {
+    QB: "QB",
+    RB: "RB",
+    WR: "WR",
+    TE: "TE",
+    K: "K",
+    PK: "K",
+    DST: "DST",
+    "D/ST": "DST",
+    DEF: "DST",
+  };
+  return map[bare];
+}
 
 /** Position-rank labels ("TE19", "D/ST") and anything with no letters at all. */
 const POSITION_RANK = /^(qb|rb|wr|te|k|pk|dst|d\/st|dl|lb|db|idp|flx|flex|sflx)\s*\d*$/i;
@@ -129,6 +152,7 @@ export function parseBorisChenCsv(csv: string): ParsedEntry[] {
   const rankCol = header.indexOf("rank");
   const nameCol = header.indexOf("player.name");
   const tierCol = header.indexOf("tier");
+  const posCol = header.indexOf("position");
   if (nameCol === -1) return [];
   const offset = leadingIndexOffset(
     header,
@@ -145,10 +169,12 @@ export function parseBorisChenCsv(csv: string): ParsedEntry[] {
     // sentinel would silently read column 0 (the row index) as rank or tier.
     const rank = rankCol >= 0 ? Number(fields[rankCol + offset]) : NaN;
     const tier = tierCol >= 0 ? Number(fields[tierCol + offset]) : NaN;
+    const position = posCol >= 0 ? parsePositionCell(fields[posCol + offset]) : undefined;
     entries.push({
       name,
       rank: Number.isFinite(rank) ? rank : entries.length + 1,
       tier: Number.isFinite(tier) ? tier : 1,
+      ...(position ? { position } : {}),
     });
   }
   return entries;

@@ -2,6 +2,7 @@ import type { ParsedEntry } from "../types.js";
 import {
   detectDelimiter,
   isJunkName,
+  parsePositionCell,
   leadingIndexOffset,
   parseBorisChenCsv,
   parseBorisChenText,
@@ -24,6 +25,10 @@ function parseHeaderedCsv(content: string): ParsedEntry[] {
   if (nameCol === -1) return [];
   const rankCol = headerIndex(header, [/^(rank|rk|overall|ovr)$/]);
   const tierCol = headerIndex(header, [/tier/]);
+  // Sources routinely publish these and we used to drop them; matchEntries
+  // uses them to settle same-name collisions without asking the user.
+  const posCol = headerIndex(header, [/^(pos|position)$/]);
+  const teamCol = headerIndex(header, [/^(team|tm)$/]);
   const offset = leadingIndexOffset(
     header,
     lines.slice(1, 3).map((l) => splitCsvLine(l, delimiter)),
@@ -37,10 +42,14 @@ function parseHeaderedCsv(content: string): ParsedEntry[] {
     if (!name || isJunkName(name)) continue;
     const rank = rankCol >= 0 ? Number(fields[rankCol + offset]) : NaN;
     const tier = tierCol >= 0 ? Number(fields[tierCol + offset]) : NaN;
+    const position = posCol >= 0 ? parsePositionCell(fields[posCol + offset]) : undefined;
+    const team = teamCol >= 0 ? fields[teamCol + offset]?.trim() : undefined;
     entries.push({
       name,
       rank: Number.isFinite(rank) ? rank : entries.length + 1,
       tier: Number.isFinite(tier) ? tier : 1,
+      ...(position ? { position } : {}),
+      ...(team ? { team } : {}),
     });
   }
   return entries;

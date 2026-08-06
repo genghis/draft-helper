@@ -10,7 +10,15 @@ const DEFAULT_BASE = "https://s3-us-west-1.amazonaws.com/fftiers/out";
 const DEFAULT_FILES = "weekly-{pos}{fmt}.csv,text_{pos}{fmt}.txt";
 
 /** Positions whose rankings differ by scoring format. */
-const FORMAT_SENSITIVE = new Set(["RB", "WR", "TE", "FLX"]);
+const FORMAT_SENSITIVE = new Set(["RB", "WR", "TE", "FLX", "OVERALL"]);
+
+/**
+ * fftiers names the full-draft list "ALL"; our scope for the same thing is
+ * OVERALL. Only STD (weekly-ALL.csv) and PPR (weekly-ALL-PPR.csv) are
+ * published -- there is no HALF variant, so that combination legitimately
+ * misses and the caller reports it rather than substituting another format.
+ */
+const FILE_POSITION: Partial<Record<string, string>> = { OVERALL: "ALL" };
 
 const FORMAT_SUFFIX: Record<ScoringFormat, string> = {
   STD: "",
@@ -27,7 +35,10 @@ export async function fetchBorisChen(
   const fmt = FORMAT_SENSITIVE.has(position) ? FORMAT_SUFFIX[scoring] : "";
 
   for (const template of templates) {
-    const file = template.trim().replace("{pos}", position).replace("{fmt}", fmt);
+    const file = template
+      .trim()
+      .replace("{pos}", FILE_POSITION[position] ?? position)
+      .replace("{fmt}", fmt);
     const url = `${base}/${file}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (res.ok) return { content: await res.text(), url };
