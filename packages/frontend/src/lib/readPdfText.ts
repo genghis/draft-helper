@@ -5,11 +5,17 @@
  * touches the initial bundle — it loads only when someone actually picks a
  * PDF, which most users never will.
  */
+/** ESPN's rankings are a single page; these bound a mis-picked document. */
+const MAX_PAGES = 25;
+const MAX_TEXT_ITEMS = 20_000;
+
 export async function readPdfText(file: File): Promise<string[]> {
   const pdfjs = await import("pdfjs-dist");
-  // Vite resolves this to a hashed asset URL and bundles the worker separately;
-  // without it pdf.js falls back to fetching a CDN worker, which the site's CSP
-  // and offline-at-the-draft-table both rule out.
+  // Vite resolves this to a hashed asset URL and bundles the worker separately.
+  // Without it pdf.js fetches its worker from a CDN, which would break at a
+  // draft table on bad wifi and adds a third party to a page that needs none.
+  // Same-origin also means pdf.js uses a plain module Worker rather than a
+  // blob wrapper, so a future CSP of `worker-src 'self'` would just work.
   pdfjs.GlobalWorkerOptions.workerSrc = (
     await import("pdfjs-dist/build/pdf.worker.mjs?url")
   ).default;
@@ -20,7 +26,11 @@ export async function readPdfText(file: File): Promise<string[]> {
   const doc = await task.promise;
   const lines: string[] = [];
   try {
-    for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+    // A 5 MB cap bounds bytes, not work: text compresses hard, so that is
+    // thousands of pages. ESPN's rankings are one page; anything past these
+    // caps is the wrong document, and stopping beats hanging the tab.
+    const maxPages = Math.min(doc.numPages, MAX_PAGES);
+    for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
       const page = await doc.getPage(pageNum);
       const content = await page.getTextContent();
       for (const item of content.items) {
@@ -28,6 +38,7 @@ export async function readPdfText(file: File): Promise<string[]> {
         if (text) lines.push(text);
       }
       page.cleanup();
+      if (lines.length > MAX_TEXT_ITEMS) break;
     }
   } finally {
     await task.destroy();

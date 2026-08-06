@@ -28,13 +28,43 @@ const NAME_LINE = /^(.+?),\s*([A-Z]{2,4})$/;
  * because every row carries its own rank and we sort at the end. And the
  * export has no tiers at all, so every entry lands in tier 1.
  */
+export interface EspnPdfResult {
+  entries: ParsedEntry[];
+  /** Ranks between 1 and the highest seen that produced no entry. */
+  missingRanks: number[];
+}
+
+/**
+ * As parseEspnPdfLines, but reporting the ranks it could not recover.
+ *
+ * pdf.js splits text items on font and glyph changes, so a layout tweak or a
+ * library bump can break the rank/name adjacency this relies on for some rows
+ * and not others. That failure is silent and looks like a shorter list, which
+ * is exactly the kind of plausible-but-wrong output the caller must be able to
+ * refuse rather than import.
+ */
+export function parseEspnPdf(lines: string[]): EspnPdfResult {
+  const entries = parseEspnPdfLines(lines);
+  const seen = new Set(entries.map((e) => e.rank));
+  const highest = entries.length > 0 ? Math.max(...seen) : 0;
+  const missingRanks: number[] = [];
+  for (let r = 1; r <= highest; r++) if (!seen.has(r)) missingRanks.push(r);
+  return { entries, missingRanks };
+}
+
 export function parseEspnPdfLines(lines: string[]): ParsedEntry[] {
   const byRank = new Map<number, ParsedEntry>();
 
   for (let i = 0; i < lines.length - 1; i++) {
     const head = RANK_LINE.exec(lines[i]!.trim());
     if (!head) continue;
-    const body = NAME_LINE.exec(lines[i + 1]!.trim());
+    // Look a couple of items ahead: pdf.js can emit a stray fragment between
+    // the rank and the name when glyphs or fonts change mid-line.
+    let body: RegExpExecArray | null = null;
+    for (let j = i + 1; j <= i + 3 && j < lines.length && !body; j++) {
+      if (RANK_LINE.test(lines[j]!.trim())) break;
+      body = NAME_LINE.exec(lines[j]!.trim());
+    }
     if (!body) continue;
 
     const rank = Number(head[1]);

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { looksLikeEspnPdf, parseEspnPdfLines } from "../src/parse/espnPdf.js";
+import { looksLikeEspnPdf, parseEspnPdf, parseEspnPdfLines } from "../src/parse/espnPdf.js";
 import { matchEntries } from "../src/normalize.js";
 import type { Player } from "../src/types.js";
 
@@ -45,6 +45,20 @@ describe("parseEspnPdfLines (real ESPN export)", () => {
   });
 });
 
+describe("parseEspnPdf reports coverage", () => {
+  it("reports no gaps for a clean extraction", () => {
+    expect(parseEspnPdf(lines).missingRanks).toEqual([]);
+  });
+
+  it("reports the ranks lost to a partial extraction", () => {
+    // Drop the name line for rank 2, as a font change mid-document would.
+    const i = lines.findIndex((l) => l.trim() === "2. (RB2)");
+    const damaged = [...lines.slice(0, i + 1), ...lines.slice(i + 4)];
+    const { missingRanks } = parseEspnPdf(damaged);
+    expect(missingRanks).toContain(2);
+  });
+});
+
 describe("matchEntries uses declared position and team", () => {
   const players: Player[] = [
     { id: "wr", name: "Mike Williams", position: "WR", team: "NYJ", espnId: 1 },
@@ -85,6 +99,34 @@ describe("matchEntries uses declared position and team", () => {
     expect(unmatched[0]!.candidates).toHaveLength(2);
   });
 
+  it("keeps every same-name option visible when hints fail to settle it", () => {
+    const two: Player[] = [
+      { id: "a", name: "Mike Williams", position: "WR", team: "NYJ", espnId: 1 },
+      { id: "b", name: "Mike Williams", position: "WR", team: "LAC", espnId: 2 },
+    ];
+    // A team neither player has must not hide either of them.
+    const { unmatched } = matchEntries(
+      [{ name: "Mike Williams", rank: 1, tier: 1, position: "WR", team: "KC" }],
+      two,
+      "OVERALL"
+    );
+    expect(unmatched[0]!.candidates.map((c) => c.player.id).sort()).toEqual(["a", "b"]);
+  });
+
+  it("lets a declared position veto a confident typo match", () => {
+    const players: Player[] = [
+      { id: "qb", name: "Josh Allen", position: "QB", team: "BUF", espnId: 1 },
+    ];
+    // One edit away, but the row says WR — send it to review, do not guess.
+    const { matched, unmatched } = matchEntries(
+      [{ name: "Josh Allan", rank: 1, tier: 1, position: "WR" }],
+      players,
+      "OVERALL"
+    );
+    expect(matched).toHaveLength(0);
+    expect(unmatched).toHaveLength(1);
+  });
+
   it("does not discard a match when the declared team is stale", () => {
     // A source listing last season's team must not drop an unambiguous player.
     const { matched } = matchEntries(
@@ -93,6 +135,34 @@ describe("matchEntries uses declared position and team", () => {
       "OVERALL"
     );
     expect(matched[0]!.player.id).toBe("solo");
+  });
+
+  it("settles a nickname tie by position", () => {
+    // "Ken Walker" is a nickname variant of both; only position separates them.
+    const two: Player[] = [
+      { id: "rb", name: "Kenneth Walker", position: "RB", team: "SEA", espnId: 1 },
+      { id: "te", name: "Kenneth Walker", position: "TE", team: "NYG", espnId: 2 },
+    ];
+    const { matched, unmatched } = matchEntries(
+      [{ name: "Ken Walker", rank: 1, tier: 1, position: "RB" }],
+      two,
+      "OVERALL"
+    );
+    expect(unmatched).toHaveLength(0);
+    expect(matched[0]!.player.id).toBe("rb");
+  });
+
+  it("keeps the DST mascot path working when a row declares DST", () => {
+    const players: Player[] = [
+      { id: "den", name: "Denver Broncos", position: "DST", team: "DEN", espnId: -1 },
+      { id: "sea", name: "Seattle Seahawks", position: "DST", team: "SEA", espnId: -2 },
+    ];
+    const { matched } = matchEntries(
+      [{ name: "Broncos D/ST", rank: 1, tier: 1, position: "DST", team: "DEN" }],
+      players,
+      "DST"
+    );
+    expect(matched[0]!.player.id).toBe("den");
   });
 
   it("canonicalizes team aliases (WSH/WAS, JAC/JAX)", () => {

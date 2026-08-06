@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type {
   BoardPosition,
   MatchResult,
@@ -9,7 +9,13 @@ import type {
   ScoringFormat,
   SourceMeta,
 } from "@drafthelper/shared";
-import { looksLikeEspnPdf, matchEntries, parseEspnPdfLines, parseRankings } from "@drafthelper/shared";
+import {
+  looksLikeEspnPdf,
+  matchEntries,
+  MAX_SOURCE_ENTRIES,
+  parseEspnPdf,
+  parseRankings,
+} from "@drafthelper/shared";
 import { api } from "../api/client";
 import { readPdfText } from "../lib/readPdfText";
 import "./ImportView.css";
@@ -37,6 +43,8 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null);
   /** Set while a PDF is being read; the engine loads on demand and is not instant. */
   const [busy, setBusy] = useState<string | null>(null);
+  /** Identifies the most recent file read, so a slow one cannot clobber a newer action. */
+  const readToken = useRef(0);
   // review-stage selections: entry rank -> chosen playerId ("" = skip)
   const [resolutions, setResolutions] = useState<Record<number, string>>({});
 
@@ -45,6 +53,15 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
   }
 
   function review(entries: ParsedEntry[], sourceLabel: string) {
+    // Refuse up front rather than after the user resolves every unmatched row:
+    // the API rejects an oversized source, and truncating silently would hand
+    // back a wrong list they cannot see is wrong.
+    if (entries.length > MAX_SOURCE_ENTRIES) {
+      setError(
+        `That file has ${entries.length} rows — the limit is ${MAX_SOURCE_ENTRIES}. Trim it to the players you'd actually draft.`
+      );
+      return;
+    }
     if (entries.length === 0) {
       setError("Couldn't find any players in that content.");
       return;
@@ -71,27 +88,46 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
       return;
     }
     const label = file.name.replace(/\.[^.]+$/, "");
+    // Any read started later wins; an earlier slow one must not overwrite it.
+    const token = ++readToken.current;
     try {
-      if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") {
+      // Sniff the magic bytes rather than trust the name: a PDF saved as .csv
+      // would otherwise be read as text and become thousands of junk rows.
+      const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+      const isPdf = String.fromCharCode(...head) === "%PDF-";
+
+      if (isPdf) {
         setBusy("Reading PDF…");
         const lines = await readPdfText(file);
+        if (token !== readToken.current) return;
         if (!looksLikeEspnPdf(lines)) {
           setError(
             "That PDF doesn't look like a rankings list. Only ESPN's printable rankings are supported — for anything else, export CSV."
           );
           return;
         }
-        review(parseEspnPdfLines(lines), label);
+        const { entries, missingRanks } = parseEspnPdf(lines);
+        // A partial read looks exactly like a shorter list, so refuse it rather
+        // than import a board with invisible holes.
+        if (missingRanks.length > entries.length * 0.02) {
+          setError(
+            `Only read ${entries.length} of ${entries.length + missingRanks.length} players from that PDF — it may be a different layout. Try the CSV export instead.`
+          );
+          return;
+        }
+        review(entries, label);
         return;
       }
+
       const text = await file.text();
+      if (token !== readToken.current) return;
       // Strip a UTF-8 BOM: Excel writes one, and it would corrupt the first
       // header cell so the name column is never found.
       startReview(text.replace(/^\uFEFF/, ""), label);
     } catch {
-      setError("Couldn't read that file.");
+      if (token === readToken.current) setError("Couldn't read that file.");
     } finally {
-      setBusy(null);
+      if (token === readToken.current) setBusy(null);
     }
   }
 
@@ -238,7 +274,7 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
       </div>
       {scope !== "OVERALL" && (
         <div className="import-actions">
-          <button type="button" onClick={fetchBorisChen}>
+          <button type="button" onClick={fetchBorisChen} disabled={busy !== null}>
             Fetch Boris Chen tiers
           </button>
         </div>
@@ -270,7 +306,7 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
       <div className="import-actions">
         <button
           type="button"
-          disabled={!pasted.trim()}
+          disabled={!pasted.trim() || busy !== null}
           onClick={() => startReview(pasted, "Pasted")}
         >
           Parse pasted rankings

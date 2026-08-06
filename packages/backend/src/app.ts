@@ -14,6 +14,7 @@ import type {
 } from "@drafthelper/shared";
 import {
   isTileableBands,
+  MAX_SOURCE_ENTRIES,
   isValidDraftOrder,
   mapEspnPicks,
   TAG_COLORS,
@@ -65,7 +66,6 @@ import { getPlayerMaps } from "./players/load.js";
 const POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DST", "FLX", "OVERALL"]);
 const SCORINGS = new Set(["STD", "HALF", "PPR"]);
 const SEED_TOOLS = new Set(["single", "consensus"]);
-const MAX_SOURCE_ENTRIES = 1000;
 const MAX_TAG_PLAYERS = 300;
 const MAX_ID_LENGTH = 64;
 const TAG_COLOR_SET = new Set<string>(TAG_COLORS);

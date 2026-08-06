@@ -168,6 +168,9 @@ export interface Pick {
   espnTeamId?: number;
 }
 
+/** Most entries a single source may hold; enforced by the API and checked before import. */
+export const MAX_SOURCE_ENTRIES = 1000;
+
 /** One row parsed from any rankings source, before player matching. */
 export interface ParsedEntry {
   name: string;

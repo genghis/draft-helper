@@ -96,10 +96,46 @@ describe("detectDelimiter", () => {
 
 describe("leadingIndexOffset", () => {
   it("detects R's unnamed row-name column", () => {
-    expect(leadingIndexOffset(["a", "b"], ["1", "x", "y"])).toBe(1);
-    expect(leadingIndexOffset(["a", "b"], ["x", "y"])).toBe(0);
+    expect(leadingIndexOffset(["a", "b"], [["1", "x", "y"], ["2", "p", "q"]])).toBe(1);
+    expect(leadingIndexOffset(["a", "b"], [["x", "y"], ["p", "q"]])).toBe(0);
     // A short/ragged data row must never produce a negative shift.
-    expect(leadingIndexOffset(["a", "b", "c"], ["x"])).toBe(0);
+    expect(leadingIndexOffset(["a", "b", "c"], [["x"]])).toBe(0);
+  });
+
+  it("does not mistake a trailing delimiter for a row index", () => {
+    // "1,Chase,1," splits to 4 fields against a 3-field header, and its first
+    // column is a rank, so consecutive-integer checks alone are fooled. The
+    // empty final field is what gives it away.
+    expect(
+      leadingIndexOffset(["rank", "player", "tier"], [["1", "Chase", "1", ""], ["2", "Lamb", "1", ""]])
+    ).toBe(0);
+  });
+
+  it("requires the extra column to actually count rows", () => {
+    expect(leadingIndexOffset(["a", "b"], [["x", "p", "q"], ["y", "r", "s"]])).toBe(0);
+    // Non-consecutive first column is not a row index.
+    expect(leadingIndexOffset(["a", "b"], [["1", "p", "q"], ["7", "r", "s"]])).toBe(0);
+  });
+});
+
+describe("CSV shapes that must not silently degrade", () => {
+  // Each of these once produced plausible-looking garbage rather than an error.
+  const rows = (csv: string) => parseRankings(csv).map((e) => e.name);
+
+  it("handles a trailing delimiter on every data row", () => {
+    expect(rows("Rank,Player,Tier\n1,Ja'Marr Chase,1,\n2,Bijan Robinson,1,")).toEqual([
+      "Ja'Marr Chase",
+      "Bijan Robinson",
+    ]);
+  });
+
+  it("handles CRLF, a BOM, and quoted separators", () => {
+    expect(rows("Rank,Player,Tier\r\n1,Chase,1\r\n2,Lamb,1")).toEqual(["Chase", "Lamb"]);
+    expect(rows("\uFEFFRank,Player,Tier\n1,Chase,1")).toEqual(["Chase"]);
+    // A comma inside a quoted field of a TAB file stays part of the name.
+    expect(rows('Player.Name\tTier\n"Smith, John"\t1')).toEqual(["Smith, John"]);
+    // A tab inside a quoted field of a COMMA file does not flip the delimiter.
+    expect(rows('Rank,Player,Tier\n1,"A\tB",1')).toEqual(["A\tB"]);
   });
 });
 
@@ -129,5 +165,35 @@ describe("real-world ranking exports", () => {
     const entries = parseRankings(fixture("fantasypros.csv"));
     expect(entries.some((e) => e.name === "Jaxon Smith-Njigba")).toBe(true);
     expect(entries.some((e) => e.name.includes("'"))).toBe(true);
+  });
+});
+
+describe("malformed exports fail honestly rather than inventing players", () => {
+  const chen = fixture("fftiers-tab.csv").split(/\r?\n/);
+
+  it("refuses an fftiers file with a stray extra column", () => {
+    // Previously produced 200 players named "1", "2", "3" — the project's
+    // signature failure. Zero entries surfaces a real error to the user.
+    const broken = [chen[0], chen[1] + "\t", ...chen.slice(2)].join("\n");
+    expect(parseRankings(broken)).toEqual([]);
+  });
+
+  it("never emits a row number as a player name", () => {
+    const broken = [chen[0], chen[1] + "\t", ...chen.slice(2)].join("\n");
+    expect(parseRankings(broken).some((e) => /^\d+$/.test(e.name))).toBe(false);
+  });
+
+  it("does not donate a single-column file's own header as a player", () => {
+    expect(parseRankings("Player\nJa'Marr Chase\nBijan Robinson").map((e) => e.name)).toEqual([
+      "Ja'Marr Chase",
+      "Bijan Robinson",
+    ]);
+  });
+
+  it("survives an unnamed but non-empty trailing column", () => {
+    // Same field-count signature as a leading row index; only checking that the
+    // shifted column yields a real name tells them apart.
+    const csv = "Rank,Player,Tier\n1,Ja'Marr Chase,1,notes\n2,Bijan Robinson,1,more";
+    expect(parseRankings(csv).map((e) => e.name)).toEqual(["Ja'Marr Chase", "Bijan Robinson"]);
   });
 });

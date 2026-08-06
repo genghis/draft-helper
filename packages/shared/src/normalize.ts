@@ -69,6 +69,15 @@ function looksLikeDst(normalized: string): boolean {
  * otherwise-correct row must not throw the match away, and a source's idea of
  * where a player plays is weaker evidence than the name itself.
  */
+/**
+ * Whether a row's declared position rules a player out. Position is reliable
+ * (a source knows a WR from a QB); team is not, because rosters move and an
+ * export is a snapshot — so team narrows among equals but never vetoes.
+ */
+function contradictsPosition(player: Player, entry: ParsedEntry): boolean {
+  return entry.position !== undefined && player.position !== entry.position;
+}
+
 function refine(candidates: Player[], entry: ParsedEntry): Player[] {
   let out = candidates;
   if (entry.position) {
@@ -118,9 +127,11 @@ export function matchEntries(
         result.matched.push({ entry, player: refined[0]! });
         continue;
       }
+      // Offer every same-name player, not just the refined subset: if the hints
+      // failed to settle it they are not trustworthy enough to hide options.
       result.unmatched.push({
         entry,
-        candidates: refined.map((player) => ({ player, distance: 0 })),
+        candidates: exact.map((player) => ({ player, distance: 0 })),
       });
       continue;
     }
@@ -152,16 +163,24 @@ export function matchEntries(
       }
     }
 
-    // Fuzzy matching searches only the plausible players when the row says
-    // where they play, so a WR typo can never resolve to a similarly-spelled QB.
-    const searchPool = entry.position || entry.team ? refine(pool, entry) : pool;
-    const scored: MatchCandidate[] = searchPool
+    // Score the whole pool. Narrowing first would shrink it to a handful, which
+    // trivially satisfies the runner-up gap check below and would auto-accept
+    // matches that should have gone to review — and would drop the right player
+    // out of the candidate list entirely when the source's team is stale.
+    const scored: MatchCandidate[] = pool
       .map((player) => ({ player, distance: levenshtein(norm, normalizeName(player.name)) }))
       .sort((a, b) => a.distance - b.distance)
       .slice(0, MAX_CANDIDATES);
 
     const [best, second] = scored;
-    if (best && best.distance <= 1 && (!second || second.distance >= best.distance + 2)) {
+    if (
+      best &&
+      best.distance <= 1 &&
+      (!second || second.distance >= best.distance + 2) &&
+      // A declared position can veto a confident-looking typo match; it never
+      // promotes a different player.
+      !contradictsPosition(best.player, entry)
+    ) {
       result.matched.push({ entry, player: best.player });
       continue;
     }

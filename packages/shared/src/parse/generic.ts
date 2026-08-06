@@ -1,6 +1,7 @@
 import type { ParsedEntry } from "../types.js";
 import {
   detectDelimiter,
+  isJunkName,
   leadingIndexOffset,
   parseBorisChenCsv,
   parseBorisChenText,
@@ -11,17 +12,6 @@ function headerIndex(header: string[], patterns: RegExp[]): number {
   return header.findIndex((h) => patterns.some((p) => p.test(h)));
 }
 
-/** Position-rank labels ("TE19", "RB 12", "D/ST"), used as section headers in pasted lists. */
-const POSITION_RANK = /^(qb|rb|wr|te|k|pk|dst|d\/st|dl|lb|db|idp|flx|flex|sflx)\s*\d*$/i;
-
-/**
- * Rows that aren't player names at all. They matter because fuzzy matching is
- * happy to land a 4-character token like "TE19" on some real short name, so
- * they have to be dropped before they ever reach the matcher.
- */
-function isJunkName(name: string): boolean {
-  return !/[a-z]/i.test(name) || POSITION_RANK.test(name);
-}
 
 /** Generic CSV with a header row naming a player/name column. */
 function parseHeaderedCsv(content: string): ParsedEntry[] {
@@ -34,7 +24,11 @@ function parseHeaderedCsv(content: string): ParsedEntry[] {
   if (nameCol === -1) return [];
   const rankCol = headerIndex(header, [/^(rank|rk|overall|ovr)$/]);
   const tierCol = headerIndex(header, [/tier/]);
-  const offset = leadingIndexOffset(header, splitCsvLine(lines[1]!, delimiter));
+  const offset = leadingIndexOffset(
+    header,
+    lines.slice(1, 3).map((l) => splitCsvLine(l, delimiter)),
+    nameCol
+  );
 
   const entries: ParsedEntry[] = [];
   for (const line of lines.slice(1)) {
@@ -60,7 +54,9 @@ function parsePlainLines(content: string): ParsedEntry[] {
     if (!trimmed) continue;
     const m = trimmed.match(/^(\d+)[.)\s]\s*(.+)$/);
     const name = (m ? m[2]! : trimmed).trim();
-    if (!name || /^(rank|tier)\b/i.test(name) || isJunkName(name)) continue;
+    // Skip a header line a single-column file would otherwise donate as a player.
+    if (!name || /^(rank|rk|tier|player|name|pos|position|team)\b/i.test(name)) continue;
+    if (isJunkName(name)) continue;
     entries.push({ name, rank: entries.length + 1, tier: 1 });
   }
   return entries;
