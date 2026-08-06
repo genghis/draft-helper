@@ -1,0 +1,72 @@
+.position-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.position-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--pos, var(--line));
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+
+.position-chip[data-position="QB"] { --pos: var(--pos-qb); }
+.position-chip[data-position="RB"] { --pos: var(--pos-rb); }
+.position-chip[data-position="WR"] { --pos: var(--pos-wr); }
+.position-chip[data-position="TE"] { --pos: var(--pos-te); }
+.position-chip[data-position="K"]  { --pos: var(--pos-k); }
+.position-chip[data-position="DST"]{ --pos: var(--pos-dst); }
+
+.position-chip:hover {
+  color: var(--ink);
+}
+
+.position-chip.is-on {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: var(--brass-ink);
+}
+
+.position-chip-count {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+
+/* Readable position label, for rows that only carried a colour before. */
+.position-badge {
+  display: inline-block;
+  min-width: 2.1rem;
+  text-align: center;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pos, var(--ink-dim));
+  border: 1px solid color-mix(in srgb, var(--pos, var(--ink-dim)) 45%, transparent);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+}
+
+.position-badge[data-position="QB"] { --pos: var(--pos-qb); }
+.position-badge[data-position="RB"] { --pos: var(--pos-rb); }
+.position-badge[data-position="WR"] { --pos: var(--pos-wr); }
+.position-badge[data-position="TE"] { --pos: var(--pos-te); }
+.position-badge[data-position="K"]  { --pos: var(--pos-k); }
+.position-badge[data-position="DST"]{ --pos: var(--pos-dst); }

@@ -5,11 +5,12 @@ import "./SourcesView.css";
 interface Props {
   sources: SourceMeta[];
   onImport: () => void;
+  onView: (source: SourceMeta) => void;
   onDeleted: (id: string) => void;
 }
 
 /** Immutable imported ranking lists — the raw inputs to cheat sheets (boards). */
-export function SourcesView({ sources, onImport, onDeleted }: Props) {
+export function SourcesView({ sources, onImport, onView, onDeleted }: Props) {
   async function remove(source: SourceMeta) {
     if (!window.confirm(`Delete source “${source.name}”? Cheat sheets already made from it stay.`)) {
       return;
@@ -39,6 +40,9 @@ export function SourcesView({ sources, onImport, onDeleted }: Props) {
               <span className="sources-meta">
                 {s.scope} · {s.scoring} · {s.entryCount} players
               </span>
+              <button type="button" className="secondary" onClick={() => onView(s)}>
+                View
+              </button>
               <button type="button" className="secondary" onClick={() => remove(s)}>
                 Delete
               </button>

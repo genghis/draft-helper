@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import type {
   AdpForPlayer,
   BoardAgreement,
@@ -5,11 +6,14 @@ import type {
   BoardMeta,
   Pick,
   Player,
+  Position,
   TagMeta,
 } from "@drafthelper/shared";
 import { adpDivergence, adpValue, boardAdpRanks, highDisagreementIds, primaryAdp, projectBands } from "@drafthelper/shared";
 import type { AdpLookup } from "../state/adp";
 import { TagBadges } from "../components/TagBadges";
+import { matchesPosition, PositionFilter } from "../components/PositionFilter";
+import { PositionBadge } from "../components/PositionBadge";
 import "../components/PlayerRowActions.css";
 import "./TierListView.css";
 
@@ -43,7 +47,17 @@ export function TierListView({
   onMark,
   onUnmark,
 }: Props) {
+  const [posFilter, setPosFilter] = useState<Set<Position>>(new Set());
   const groups = projectBands(layout.placements, meta.bands);
+
+  const counts = useMemo(() => {
+    const c = new Map<Position, number>();
+    for (const id of Object.keys(layout.placements)) {
+      const pos = playersById.get(id)?.position;
+      if (pos) c.set(pos, (c.get(pos) ?? 0) + 1);
+    }
+    return c;
+  }, [layout.placements, playersById]);
   const sourceCount = meta.sourceIds?.length ?? 0;
   const splitIds = agreement ? highDisagreementIds(agreement) : new Set<string>();
 
@@ -58,6 +72,7 @@ export function TierListView({
 
   return (
     <div className="tier-list">
+      <PositionFilter selected={posFilter} onChange={setPosFilter} counts={counts} />
       {agreement && (
         <p className="tier-legend muted">
           <span className="agree-badge agree-split">±</span> experts split (boom/bust) ·{" "}
@@ -66,7 +81,18 @@ export function TierListView({
         </p>
       )}
       {groups.map((group, gi) => {
-        const remaining = group.playerIds.filter((id) => !picks.has(id)).length;
+        const visible = group.playerIds.filter((id) =>
+          matchesPosition(playersById.get(id)?.position, posFilter)
+        );
+        // Counts what you are actually looking at: with RB selected, "3 left"
+        // must mean three running backs, not three players of any position.
+        const remaining = visible.filter((id) => !picks.has(id)).length;
+        // A tier with nothing at the filtered positions is noise, not information.
+        if (visible.length === 0) {
+          // Ranks still advance so the numbers keep matching the full board.
+          overallRank += group.playerIds.length;
+          return null;
+        }
         return (
           <section key={`${group.band.label}-${gi}`} className="tier-band">
             <header className="tier-band-header">
@@ -78,6 +104,7 @@ export function TierListView({
             <ul>
               {group.playerIds.map((id) => {
                 overallRank++;
+                if (!matchesPosition(playersById.get(id)?.position, posFilter)) return null;
                 const player = playersById.get(id);
                 const pick = picks.get(id);
                 const gone = pick !== undefined;
@@ -97,6 +124,7 @@ export function TierListView({
                       title={gone ? "Undo" : "Mark drafted"}
                     >
                       <span className="tier-rank">{overallRank}</span>
+                      <PositionBadge position={player?.position} />
                       <span className="tier-name">{player?.name ?? id}</span>
                       <span className="tier-team">{player?.team ?? ""}</span>
                       {!gone && (

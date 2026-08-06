@@ -13,6 +13,7 @@ import { BoardsView } from "./views/BoardsView";
 import { DraftDayView } from "./views/DraftDayView";
 import { ImportView } from "./views/ImportView";
 import { SettingsView } from "./views/SettingsView";
+import { SourceDetailView } from "./views/SourceDetailView";
 import { SourcesView } from "./views/SourcesView";
 import { TagEditorView } from "./views/TagEditorView";
 import { TagsView } from "./views/TagsView";
@@ -21,7 +22,15 @@ import "./App.css";
 
 type AuthState = { status: "loading" } | { status: "out" } | { status: "in"; user: SessionUser };
 
-type View = "sortings" | "sources" | "import" | "draft" | "settings" | "tags" | "tag-editor";
+type View =
+  | "sortings"
+  | "sources"
+  | "source-detail"
+  | "import"
+  | "draft"
+  | "settings"
+  | "tags"
+  | "tag-editor";
 
 export function App() {
   const [auth, setAuth] = useState<AuthState>({ status: "loading" });
@@ -31,6 +40,7 @@ export function App() {
   const [editingTag, setEditingTag] = useState<Tag | undefined>(undefined);
   // One tag picker for the whole app — every player surface opens this one.
   const [tagTarget, setTagTarget] = useState<string | null>(null);
+  const [viewingSource, setViewingSource] = useState<SourceMeta | null>(null);
   const { players, byId, error: playersError } = usePlayers();
   const adp = useAdp();
   const signedIn = auth.status === "in";
@@ -126,10 +136,23 @@ export function App() {
               onCreated={onSourceCreated}
               onCancel={() => setView("sources")}
             />
+          ) : view === "source-detail" && viewingSource ? (
+            <SourceDetailView
+              meta={viewingSource}
+              playersById={byId}
+              onBack={() => {
+                setViewingSource(null);
+                setView("sources");
+              }}
+            />
           ) : view === "sources" ? (
             <SourcesView
               sources={sources}
               onImport={() => setView("import")}
+              onView={(s) => {
+                setViewingSource(s);
+                setView("source-detail");
+              }}
               onDeleted={(id) => setSources((prev) => prev.filter((s) => s.id !== id))}
             />
           ) : view === "tag-editor" && players ? (

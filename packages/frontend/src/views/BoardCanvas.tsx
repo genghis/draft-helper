@@ -6,6 +6,7 @@ import type {
   Pick,
   Placement,
   Player,
+  Position,
   TagMeta,
   TierBand,
 } from "@drafthelper/shared";
@@ -22,6 +23,7 @@ import {
 import { api, ApiError } from "../api/client";
 import { useLayoutSaver } from "../state/layoutSaver";
 import { TagDots } from "../components/TagBadges";
+import { matchesPosition, PositionFilter } from "../components/PositionFilter";
 import "./BoardCanvas.css";
 
 interface Props {
@@ -64,6 +66,7 @@ export function BoardCanvas({
   // Index of the band whose label is being edited, plus its in-progress text.
   const [editingLabel, setEditingLabel] = useState<number | null>(null);
   const [draftLabel, setDraftLabel] = useState("");
+  const [posFilter, setPosFilter] = useState<Set<Position>>(new Set());
   const splitIds = useMemo(
     () => (agreement ? highDisagreementIds(agreement) : new Set<string>()),
     [agreement]
@@ -84,6 +87,15 @@ export function BoardCanvas({
   // chip follows the cursor from wherever it was grabbed instead of its
   // placement snapping to the cursor (which reads as a jump on drag start).
   const chipGrabOffset = useRef<Placement>({ x: 0, y: 0 });
+
+  const positionCounts = useMemo(() => {
+    const c = new Map<Position, number>();
+    for (const id of Object.keys(placements)) {
+      const pos = playersById.get(id)?.position;
+      if (pos) c.set(pos, (c.get(pos) ?? 0) + 1);
+    }
+    return c;
+  }, [placements, playersById]);
 
   const maxY = useMemo(() => {
     const ys = [
@@ -239,6 +251,14 @@ export function BoardCanvas({
         {saving && <span className="canvas-saving muted">saving…</span>}
         {bandError && <span className="canvas-band-error">{bandError}</span>}
       </div>
+      <div className="canvas-toolbar">
+        <PositionFilter selected={posFilter} onChange={setPosFilter} counts={positionCounts} />
+        {posFilter.size > 0 && (
+          <span className="muted">
+            Filtered — tier bands still span the hidden players, and dragging still saves.
+          </span>
+        )}
+      </div>
       {/* Inline styles below are all per-element coordinates computed from live
           layout/drag state (maxY, band y0/y1, chip x/y as %); they change every
           render and every drag frame, so they cannot live in a stylesheet. */}
@@ -319,6 +339,7 @@ export function BoardCanvas({
           />
         ))}
         {Object.entries(placements).map(([id, p]) => {
+          if (!matchesPosition(playersById.get(id)?.position, posFilter)) return null;
           const pick = picks.get(id);
           const cls = [
             "canvas-chip",

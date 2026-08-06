@@ -1,5 +1,8 @@
-import type { DraftOrder, Pick, Player } from "@drafthelper/shared";
+import { useState } from "react";
+import type { DraftOrder, Pick, Player, Position } from "@drafthelper/shared";
 import { buildBoard, picksMade, turnStatus } from "@drafthelper/shared";
+import { matchesPosition, PositionFilter } from "../components/PositionFilter";
+import { PositionBadge } from "../components/PositionBadge";
 import "./RunningBoard.css";
 
 interface Props {
@@ -10,6 +13,7 @@ interface Props {
 
 /** Every pick so far, in order, with the team that made it — plus whose turn it is. */
 export function RunningBoard({ picks, order, playersById }: Props) {
+  const [posFilter, setPosFilter] = useState<Set<Position>>(new Set());
   const all = [...picks.values()];
   const rows = buildBoard(all, order);
   const turn = turnStatus(picksMade(all), order);
@@ -48,12 +52,17 @@ export function RunningBoard({ picks, order, playersById }: Props) {
         <span>Draft board</span>
         {rows.length > 0 && <span className="muted">{rows.length} picks in</span>}
       </header>
+      {rows.length > 0 && (
+        <PositionFilter selected={posFilter} onChange={setPosFilter} />
+      )}
 
       {rows.length === 0 ? (
         <p className="muted">No picks yet.</p>
       ) : (
         <ol className="running-board-list">
-          {rows.map((row) => (
+          {rows
+            .filter((row) => matchesPosition(playersById.get(row.playerId)?.position, posFilter))
+            .map((row) => (
             <li key={row.playerId} className={row.mine ? "is-mine" : undefined}>
               <span className="running-board-num">
                 {row.round}.{String(row.pick).padStart(2, "0")}
@@ -62,6 +71,7 @@ export function RunningBoard({ picks, order, playersById }: Props) {
                 {row.mine && <span className="pin" aria-hidden="true" />}
                 {row.team?.name || `Seat ${row.slot + 1}`}
               </span>
+              <PositionBadge position={playersById.get(row.playerId)?.position} />
               <span className="running-board-player">
                 {playersById.get(row.playerId)?.name ?? row.playerId}
               </span>
