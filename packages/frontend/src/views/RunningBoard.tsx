@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { DraftOrder, Pick, Player, Position } from "@drafthelper/shared";
 import { buildBoard, picksMade, turnStatus, matchesPosition} from "@drafthelper/shared";
 import { PositionFilter } from "../components/PositionFilter";
-import { PositionBadge } from "../components/PositionBadge";
+import { PlayerPositionBadge } from "../components/PositionBadge";
 import "./RunningBoard.css";
 
 interface Props {
@@ -79,7 +79,7 @@ export function RunningBoard({ picks, order, playersById }: Props) {
                 {row.mine && <span className="pin" aria-hidden="true" />}
                 {row.team?.name || `Seat ${row.slot + 1}`}
               </span>
-              <PositionBadge position={playersById.get(row.playerId)?.position} />
+              <PlayerPositionBadge player={playersById.get(row.playerId)} />
               <span className="running-board-player">
                 {playersById.get(row.playerId)?.name ?? row.playerId}
               </span>

@@ -13,7 +13,7 @@ import { adpDivergence, adpValue, boardAdpRanks, highDisagreementIds, primaryAdp
 import type { AdpLookup } from "../state/adp";
 import { TagBadges } from "../components/TagBadges";
 import { PositionFilter } from "../components/PositionFilter";
-import { PositionBadge } from "../components/PositionBadge";
+import { PlayerPositionBadge } from "../components/PositionBadge";
 import "../components/PlayerRowActions.css";
 import "./TierListView.css";
 
@@ -126,7 +126,7 @@ export function TierListView({
                       title={gone ? "Undo" : "Mark drafted"}
                     >
                       <span className="tier-rank">{overallRank}</span>
-                      <PositionBadge position={player?.position} />
+                      <PlayerPositionBadge player={player} />
                       <span className="tier-name">{player?.name ?? id}</span>
                       <span className="tier-team">{player?.team ?? ""}</span>
                       {!gone && (

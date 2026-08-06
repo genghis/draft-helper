@@ -2,6 +2,7 @@ import type { BoardLayout, BoardMeta, Pick, Player, TagMeta } from "@drafthelper
 import { bestAvailable, currentTierScarcity, primaryAdp } from "@drafthelper/shared";
 import type { AdpLookup } from "../state/adp";
 import { TagBadges } from "../components/TagBadges";
+import { PlayerPositionBadge } from "../components/PositionBadge";
 import "../components/PlayerRowActions.css";
 import "./BestAvailableRail.css";
 
@@ -54,6 +55,7 @@ export function BestAvailableRail({
                 const marketAdp = primaryAdp(adp.forPlayer(board.scoring, id));
                 return (
                   <li key={id}>
+                    <PlayerPositionBadge player={playersById.get(id)} />
                     <span className="rail-player">{playersById.get(id)?.name ?? id}</span>
                     {marketAdp != null && (
                       <span className="rail-adp" title="Market ADP (overall pick)">

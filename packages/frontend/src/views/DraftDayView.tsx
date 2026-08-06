@@ -3,6 +3,7 @@ import type { BoardLayout, BoardMeta, Pick, Player, TagMeta } from "@drafthelper
 import { buildNameIndex, orderWarnings, searchPlayers } from "@drafthelper/shared";
 import type { AdpLookup } from "../state/adp";
 import type { DraftController } from "../state/draft";
+import { PlayerPositionBadge } from "../components/PositionBadge";
 import { BestAvailableRail } from "./BestAvailableRail";
 import { DraftOrderPanel } from "./DraftOrderPanel";
 import { RunningBoard } from "./RunningBoard";
@@ -178,10 +179,9 @@ export function DraftDayView({
                 className="draft-result-main"
                 onClick={() => markPlayer(p, mineNext)}
               >
+                <PlayerPositionBadge player={p} />
                 <span className="draft-result-name">{p.name}</span>
-                <span className="draft-result-meta">
-                  {p.position} · {p.team ?? "FA"}
-                </span>
+                <span className="draft-result-meta">{p.team ?? "FA"}</span>
                 {i === 0 && <kbd className="draft-result-kbd">↵</kbd>}
               </button>
               {onTagPlayer && (

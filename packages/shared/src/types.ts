@@ -15,6 +15,14 @@ export interface Player {
   team: string | null;
   /** ESPN player id crossref; live draft sync maps picks through this. */
   espnId: number | null;
+  /**
+   * Where the player sits on his own team's depth chart: 1 is the starter.
+   * Absent for free agents (depth is team-relative), for defenses, and for the
+   * ~25% of rostered players Sleeper has no ordering for.
+   *
+   * NOT a ranking. "RB2" here means second on his team, not the second-best RB.
+   */
+  depthOrder?: number;
 }
 
 /**

@@ -84,6 +84,12 @@ interface SleeperPlayer {
   status?: string | null;
   /** Sleeper's fantasy-relevance ordering; retirees get 9999999. */
   search_rank?: number | null;
+  /**
+   * Depth-chart slot within the team, 1 = starter. Sleeper also publishes
+   * depth_chart_position, but for receivers that is alignment (LWR/SWR/RWR)
+   * rather than the WR1/WR2/WR3 fantasy means, so only the order is used.
+   */
+  depth_chart_order?: number | null;
   espn_id?: number | null;
 }
 
@@ -154,13 +160,27 @@ export async function handler(): Promise<{ count: number }> {
       : espnMaps.byName.get(nameKey(name, position));
     const espnId = fromEspn ?? p.espn_id ?? null;
     if (espnId != null) espnMatched++;
-    players.push({ id: p.player_id, name, position, team, espnId });
+    // Depth is team-relative, so it is meaningless for a free agent even when
+    // Sleeper leaves a stale value behind.
+    const depthOrder =
+      !isTeamDefense && team && typeof p.depth_chart_order === "number"
+        ? p.depth_chart_order
+        : undefined;
+    players.push({
+      id: p.player_id,
+      name,
+      position,
+      team,
+      espnId,
+      ...(depthOrder ? { depthOrder } : {}),
+    });
   }
 
+  const withDepth = players.filter((p) => p.depthOrder !== undefined).length;
   console.log(
     `players: ${players.length}, espnId attached: ${espnMatched} (${Math.round(
       (100 * espnMatched) / players.length
-    )}%)`
+    )}%), depth chart: ${withDepth}`
   );
 
   if (players.length < 500) {

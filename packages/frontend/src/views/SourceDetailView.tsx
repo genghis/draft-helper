@@ -3,7 +3,7 @@ import type { Player, Position, Source, SourceMeta } from "@drafthelper/shared";
 import { api } from "../api/client";
 import { matchesPosition } from "@drafthelper/shared";
 import { PositionFilter } from "../components/PositionFilter";
-import { PositionBadge } from "../components/PositionBadge";
+import { PlayerPositionBadge } from "../components/PositionBadge";
 import "./SourceDetailView.css";
 
 interface Props {
@@ -80,7 +80,7 @@ export function SourceDetailView({ meta, playersById, onBack }: Props) {
               return (
                 <li key={e.playerId} data-position={player?.position}>
                   <span className="source-detail-rank">{e.rank}</span>
-                  <PositionBadge position={player?.position} />
+                  <PlayerPositionBadge player={player} />
                   <span className="source-detail-name">
                     {/* A source stores player ids; an id with no player means the
                         canonical list dropped them since import. */}
