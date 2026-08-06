@@ -80,8 +80,25 @@ interface SleeperPlayer {
   position?: string;
   team?: string | null;
   active?: boolean;
+  /** "Active" / "Inactive" — more reliable than `active`, which stays true for retirees. */
+  status?: string | null;
+  /** Sleeper's fantasy-relevance ordering; retirees get 9999999. */
+  search_rank?: number | null;
   espn_id?: number | null;
 }
+
+/**
+ * How far down Sleeper's relevance ordering to keep unsigned free agents.
+ *
+ * Dropping every team-less player also drops the unsigned veterans ranking
+ * sites still list — Tyreek Hill, Nick Chubb, DeAndre Hopkins and friends sat
+ * between 116 and 319 — so importing an ESPN list left them unmatched with no
+ * way to pick them. Keeping ALL team-less players instead adds ~1900 retirees
+ * and camp bodies. This cutoff spans the draftable ones with room to spare;
+ * it only gates the unsigned, since signing gives a player a team and they
+ * pass on that alone.
+ */
+const FREE_AGENT_RANK_LIMIT = 400;
 
 const s3 = new S3Client({});
 
@@ -112,10 +129,17 @@ export async function handler(): Promise<{ count: number }> {
   let espnMatched = 0;
   for (const p of Object.values(raw)) {
     if (!p.position || !FANTASY_POSITIONS.has(p.position)) continue;
-    // Team defenses (position DEF, id = team abbr) have no `active` flag;
-    // individual players must be active AND rostered to make the cut.
+    // Team defenses (position DEF, id = team abbr) have no `active` flag.
     const isTeamDefense = p.position === "DEF";
-    if (!isTeamDefense && (!p.active || !p.team)) continue;
+    if (!isTeamDefense) {
+      if (!p.active) continue;
+      // Unsigned players are kept only while they are still fantasy-relevant.
+      // `status` rather than `active`: retirees keep active=true for years.
+      if (!p.team) {
+        const rank = p.search_rank ?? Number.MAX_SAFE_INTEGER;
+        if (p.status !== "Active" || rank >= FREE_AGENT_RANK_LIMIT) continue;
+      }
+    }
     const name =
       p.full_name ?? [p.first_name, p.last_name].filter(Boolean).join(" ");
     if (!name) continue;
