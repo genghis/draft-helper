@@ -1,0 +1,97 @@
+/* Gag paywall. Leans on Modal.css for the backdrop and card, and only adds
+   what sells the bit: a slightly more "billing screen" tone than the rest of
+   the app, then a wider card once the joke lands and the clip needs room. */
+
+.paywall-card {
+  gap: 0.75rem;
+}
+
+.paywall-card h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.paywall-lede {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+
+.paywall-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.paywall-actions {
+  margin-top: 0.25rem;
+  justify-content: flex-end;
+}
+
+.paywall-submit {
+  background: var(--brass);
+  color: var(--brass-ink);
+  border: 1px solid var(--brass-strong);
+}
+
+.paywall-fine {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.paywall-promo {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.paywall-promo-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.paywall-promo-row input {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+}
+
+/* The reveal. */
+
+.paywall-card.is-busted {
+  width: min(34rem, 100%);
+  align-items: center;
+  text-align: center;
+}
+
+.paywall-gif {
+  width: 100%;
+  max-width: 28rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  display: block;
+}
+
+.paywall-busted {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.paywall-busted h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--brass-strong);
+}
+
+.paywall-busted p {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+  max-width: 26rem;
+}

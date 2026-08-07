@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { BoardMeta, SessionUser, SourceMeta, Tag } from "@drafthelper/shared";
+import { picksMade } from "@drafthelper/shared";
 import { api, ApiError } from "./api/client";
 import { useAdp } from "./state/adp";
 import { useAllBoardLayouts } from "./state/boardLayouts";
@@ -7,6 +8,7 @@ import { useDraft } from "./state/draft";
 import { useHandcuffAutoTag } from "./state/useHandcuffAutoTag";
 import { usePlayers } from "./state/players";
 import { useTags } from "./state/tags";
+import { PaywallPrank } from "./components/PaywallPrank";
 import { TagPickerModal } from "./components/TagPickerModal";
 import { AdminPanel } from "./views/AdminPanel";
 import { BoardsView } from "./views/BoardsView";
@@ -21,6 +23,17 @@ import "./views/DraftDayView.css";
 import "./App.css";
 
 type AuthState = { status: "loading" } | { status: "out" } | { status: "in"; user: SessionUser };
+
+/**
+ * League in-joke: the one user id that gets the gag paywall after round 4.
+ * Empty string disarms it entirely, which is how it ships until someone
+ * deliberately fills in an id. Grab the id from the Admin panel.
+ */
+const PRANK_TARGET_USER_ID: string = "23c75cd5-6d0d-40fb-913f-c1f951c5f901";
+/** Used on the reveal, so it doesn't depend on how he named his profile. */
+const PRANK_TARGET_NAME = "Matt";
+const PRANK_AFTER_ROUND = 4;
+const PRANK_DISMISSED_KEY = "dh-paywall-prank-dismissed";
 
 type View =
   | "sortings"
@@ -57,6 +70,18 @@ export function App() {
     adp,
     tags,
   });
+
+  const [prankDismissed, setPrankDismissed] = useState(
+    () => sessionStorage.getItem(PRANK_DISMISSED_KEY) === "1"
+  );
+  // Same round math the pick log uses, so there's no second source of truth.
+  const prankArmed =
+    PRANK_TARGET_USER_ID !== "" &&
+    auth.status === "in" &&
+    auth.user.id === PRANK_TARGET_USER_ID &&
+    !prankDismissed &&
+    draft.order !== null &&
+    picksMade([...draft.picks.values()]) >= PRANK_AFTER_ROUND * draft.order.teamCount;
 
   useEffect(() => {
     api<SessionUser>("/me")
@@ -218,6 +243,15 @@ export function App() {
               onAdd={tags.addPlayerToTag}
               onCreate={tags.createTagWithPlayer}
               onClose={() => setTagTarget(null)}
+            />
+          )}
+          {prankArmed && (
+            <PaywallPrank
+              name={PRANK_TARGET_NAME}
+              onDismiss={() => {
+                sessionStorage.setItem(PRANK_DISMISSED_KEY, "1");
+                setPrankDismissed(true);
+              }}
             />
           )}
           {handcuff.toast && (
