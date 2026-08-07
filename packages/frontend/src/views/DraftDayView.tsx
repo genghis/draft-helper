@@ -29,6 +29,15 @@ interface Toast {
 }
 
 const TOAST_MS = 5000;
+
+/** Coarse age for the sync chip; "19047m" is thirteen days spelled the long way. */
+function formatAge(seconds: number): string {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 90) return `${minutes}m`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 36) return `${hours}h`;
+  return `${Math.round(hours / 24)}d`;
+}
 const LOG_SIZE = 10;
 
 export function DraftDayView({
@@ -132,7 +141,7 @@ export function DraftDayView({
         ? `extension live · ${espnCount} synced`
         : syncState === "stale"
           ? `extension lagging (${Math.round(pushAgeSec!)}s)`
-          : `extension silent ${Math.round(pushAgeSec! / 60)}m — mark manually`;
+          : `extension silent ${formatAge(pushAgeSec!)} — mark manually`;
 
   return (
     <section className="draft-day">

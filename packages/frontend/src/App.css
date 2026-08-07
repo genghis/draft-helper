@@ -177,6 +177,13 @@ button:disabled {
   padding: 2rem 1rem 4rem;
 }
 
+/* Draft day and the cheat sheets are dense tables read at a glance, not prose:
+   60rem left roughly a third of a laptop screen empty on either side. Views
+   that are actually reading-width keep the narrower measure. */
+.app-shell.is-wide {
+  max-width: 104rem;
+}
+
 .handcuff-toast {
   position: fixed;
   bottom: 1rem;

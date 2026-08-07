@@ -105,8 +105,11 @@ export function App() {
     </button>
   );
 
+  // Dense, scannable views earn the full window; the rest stay readable.
+  const wide = view === "draft" || view === "sortings";
+
   return (
-    <main className="app-shell">
+    <main className={wide ? "app-shell is-wide" : "app-shell"}>
       <header className="app-header">
         <h1 className="wordmark">
           <span className="pin" aria-hidden="true" />

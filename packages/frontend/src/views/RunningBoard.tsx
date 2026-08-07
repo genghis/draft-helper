@@ -11,7 +11,11 @@ interface Props {
   playersById: Map<string, Player>;
 }
 
-/** Every pick so far, in order, with the team that made it — plus whose turn it is. */
+/**
+ * Every pick so far, in order, with the team that made it, plus whose turn it
+ * is. Called a pick log rather than a draft board: on draft day it sits beside
+ * the cheat sheet, and two things called "board" on one screen is one too many.
+ */
 export function RunningBoard({ picks, order, playersById }: Props) {
   const [posFilter, setPosFilter] = useState<Set<Position>>(new Set());
   const all = [...picks.values()];
@@ -57,7 +61,7 @@ export function RunningBoard({ picks, order, playersById }: Props) {
       )}
 
       <header className="running-board-head">
-        <span>Draft board</span>
+        <span>Pick log</span>
         {rows.length > 0 && <span className="muted">{rows.length} picks in</span>}
       </header>
       {rows.length > 0 && (
