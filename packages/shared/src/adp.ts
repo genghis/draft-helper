@@ -33,3 +33,16 @@ export function adpDivergence(v: AdpForPlayer): number | null {
 export function adpValue(boardRank: number, adpRank: number): number {
   return adpRank - boardRank;
 }
+
+/**
+ * Formats an ADP for display.
+ *
+ * Rounding everything hid the separation that matters most: at the top of the
+ * board a tenth of a pick is real disagreement, so Gibbs at 1.6 and Bijan at
+ * 2.0 both rendered "2" and looked tied. Below pick 10 nobody is deciding
+ * anything on a fraction, so those stay whole numbers.
+ */
+export function formatAdp(value: number | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return value < 10 ? value.toFixed(1) : String(Math.round(value));
+}

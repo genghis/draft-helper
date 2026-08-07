@@ -1,5 +1,5 @@
 import type { BoardLayout, BoardMeta, Pick, Player, TagMeta } from "@drafthelper/shared";
-import { bestAvailable, currentTierScarcity, primaryAdp } from "@drafthelper/shared";
+import { bestAvailable, currentTierScarcity, formatAdp, primaryAdp } from "@drafthelper/shared";
 import type { AdpLookup } from "../state/adp";
 import { TagBadges } from "../components/TagBadges";
 import { PlayerPositionBadge } from "../components/PositionBadge";
@@ -59,7 +59,7 @@ export function BestAvailableRail({
                     <span className="rail-player">{playersById.get(id)?.name ?? id}</span>
                     {marketAdp != null && (
                       <span className="rail-adp" title="Market ADP (overall pick)">
-                        {Math.round(marketAdp)}
+                        {formatAdp(marketAdp)}
                       </span>
                     )}
                     <TagBadges tags={tagsByPlayer?.get(id)} />

@@ -9,7 +9,16 @@ import type {
   Position,
   TagMeta,
 } from "@drafthelper/shared";
-import { adpDivergence, adpValue, boardAdpRanks, highDisagreementIds, primaryAdp, projectBands, matchesPosition} from "@drafthelper/shared";
+import {
+  adpDivergence,
+  adpValue,
+  boardAdpRanks,
+  formatAdp,
+  highDisagreementIds,
+  matchesPosition,
+  primaryAdp,
+  projectBands,
+} from "@drafthelper/shared";
 import type { AdpLookup } from "../state/adp";
 import { TagBadges } from "../components/TagBadges";
 import { PositionFilter } from "../components/PositionFilter";
@@ -198,7 +207,7 @@ function AdpCell({
   adpRank: number | undefined;
 }) {
   if (vals.espn == null && vals.ffc == null) return null;
-  const fmt = (n: number | undefined) => (n == null ? "—" : Math.round(n));
+  const fmt = formatAdp;
   const divergence = adpDivergence(vals);
   const value = adpRank != null ? adpValue(boardRank, adpRank) : null;
   return (
