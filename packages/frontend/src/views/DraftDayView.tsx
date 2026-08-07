@@ -5,6 +5,7 @@ import type { AdpLookup } from "../state/adp";
 import type { DraftController } from "../state/draft";
 import { PlayerPositionBadge } from "../components/PositionBadge";
 import { BestAvailableRail } from "./BestAvailableRail";
+import { DraftBoardPanel } from "./DraftBoardPanel";
 import { DraftOrderPanel } from "./DraftOrderPanel";
 import { RunningBoard } from "./RunningBoard";
 import "../components/PlayerRowActions.css";
@@ -135,16 +136,19 @@ export function DraftDayView({
 
   return (
     <section className="draft-day">
-      <div className={`draft-sync draft-sync-${syncState}`} role="status">
-        {syncLabel}
+      <div className="draft-topbar">
+        <div className={`draft-sync draft-sync-${syncState}`} role="status">
+          {syncLabel}
+        </div>
+        <DraftOrderPanel
+          order={draft.order}
+          error={draft.orderError}
+          warnings={orderIssues}
+          onStart={draft.startOrder}
+          onChange={draft.saveOrder}
+        />
       </div>
-      <DraftOrderPanel
-        order={draft.order}
-        error={draft.orderError}
-        warnings={orderIssues}
-        onStart={draft.startOrder}
-        onChange={draft.saveOrder}
-      />
+
       <div className="draft-search-bar">
         <input
           ref={inputRef}
@@ -168,10 +172,9 @@ export function DraftDayView({
         >
           {mineNext ? "Marking: mine" : "Next is mine?"}
         </button>
-      </div>
 
-      {results.length > 0 && (
-        <ul className="draft-results">
+        {results.length > 0 && (
+          <ul className="draft-results">
           {results.map((p, i) => (
             <li key={p.id} className={i === 0 ? "draft-result draft-result-top" : "draft-result"}>
               <button
@@ -204,9 +207,10 @@ export function DraftDayView({
                 Mine
               </button>
             </li>
-          ))}
-        </ul>
-      )}
+            ))}
+          </ul>
+        )}
+      </div>
 
       {toast && (
         <div className="draft-toast" role="status">
@@ -220,21 +224,35 @@ export function DraftDayView({
         </div>
       )}
 
-      {draft.order && (
-        <RunningBoard picks={draft.picks} order={draft.order} playersById={playersById} />
-      )}
+      <div className="draft-layout">
+        <DraftBoardPanel
+          boards={boards}
+          layouts={layouts}
+          playersById={playersById}
+          adp={adp}
+          tagsByPlayer={tagsByPlayer}
+          onTagPlayer={onTagPlayer}
+          picks={draft.picks}
+          onMark={draft.mark}
+          onUnmark={draft.unmark}
+        />
 
-      <BestAvailableRail
-        boards={boards}
-        layouts={layouts}
-        playersById={playersById}
-        adp={adp}
-        tagsByPlayer={tagsByPlayer}
-        onTagPlayer={onTagPlayer}
-        picks={draft.picks}
-      />
+        <aside className="draft-aside">
+          {draft.order && (
+            <RunningBoard picks={draft.picks} order={draft.order} playersById={playersById} />
+          )}
 
-      <div className="draft-log">
+          <BestAvailableRail
+            boards={boards}
+            layouts={layouts}
+            playersById={playersById}
+            adp={adp}
+            tagsByPlayer={tagsByPlayer}
+            onTagPlayer={onTagPlayer}
+            picks={draft.picks}
+          />
+
+          <div className="draft-log">
         <header className="draft-log-header">
           <span>Recent picks</span>
           {lastMarkedName != null && (
@@ -259,9 +277,11 @@ export function DraftDayView({
               >
                 Undo
               </button>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+          </div>
+        </aside>
       </div>
     </section>
   );

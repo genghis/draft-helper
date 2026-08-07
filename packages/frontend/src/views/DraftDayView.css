@@ -183,3 +183,58 @@
   color: var(--info);
   border-color: color-mix(in srgb, var(--info) 55%, transparent);
 }
+
+/* ── Draft-day layout ───────────────────────────────────────────────────
+   The cheat sheet is what you read while the clock runs, so it takes the
+   room; the pick log and best-available sit in a narrow rail you glance at
+   between picks. Below ~64rem the rail stacks under the sheet. */
+.draft-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21rem;
+  gap: 1.1rem;
+  align-items: start;
+}
+
+@media (max-width: 64rem) {
+  .draft-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.draft-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  position: sticky;
+  top: 0.5rem;
+  max-height: calc(100vh - 1rem);
+  overflow-y: auto;
+}
+
+.draft-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Results float over the sheet instead of pushing it down the page — the
+   board must not jump under your eyes while you type. */
+.draft-search-bar {
+  position: relative;
+}
+
+.draft-search-bar .draft-results {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(20, 20, 15, 0.18);
+  max-height: 22rem;
+  overflow-y: auto;
+}

@@ -1,0 +1,116 @@
+.draft-board-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0; /* lets the grid column shrink instead of forcing overflow */
+}
+
+.draft-board-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.4rem;
+}
+
+/* Tabs read as file dividers on a draft desk: a position-coloured edge, and
+   the active one connected to the sheet below it. */
+.draft-board-tab {
+  background: none;
+  border: 1px solid var(--line);
+  border-bottom-color: transparent;
+  border-top: 3px solid var(--pos, var(--line));
+  border-radius: 6px 6px 0 0;
+  padding: 0.3rem 0.8rem;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+
+.draft-board-tab[data-position="QB"] { --pos: var(--pos-qb); }
+.draft-board-tab[data-position="RB"] { --pos: var(--pos-rb); }
+.draft-board-tab[data-position="WR"] { --pos: var(--pos-wr); }
+.draft-board-tab[data-position="TE"] { --pos: var(--pos-te); }
+.draft-board-tab[data-position="K"]  { --pos: var(--pos-k); }
+.draft-board-tab[data-position="DST"]{ --pos: var(--pos-dst); }
+.draft-board-tab[data-position="OVERALL"],
+.draft-board-tab[data-position="FLX"] { --pos: var(--brass); }
+
+.draft-board-tab:hover { color: var(--ink); }
+
+.draft-board-tab.is-on {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.draft-board-mode {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.25rem 0.85rem;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+
+.draft-board-mode[aria-pressed="true"] {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: var(--brass-ink);
+}
+
+.draft-board-comparing {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.draft-board-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+/* Compare: parallel columns, each scrolling on its own so tiers stay aligned
+   to their own board rather than to whichever list is longest. */
+.draft-board-grid.is-compare {
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  align-items: start;
+}
+
+.draft-board-grid.is-compare .draft-board-column {
+  max-height: 68vh;
+  overflow-y: auto;
+}
+
+.draft-board-column { min-width: 0; }
+
+.draft-board-column-title {
+  margin: 0 0 0.4rem;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink);
+  border-left: 3px solid var(--pos, var(--brass));
+  padding-left: 0.5rem;
+}
+
+.draft-board-column-title[data-position="QB"] { --pos: var(--pos-qb); }
+.draft-board-column-title[data-position="RB"] { --pos: var(--pos-rb); }
+.draft-board-column-title[data-position="WR"] { --pos: var(--pos-wr); }
+.draft-board-column-title[data-position="TE"] { --pos: var(--pos-te); }
