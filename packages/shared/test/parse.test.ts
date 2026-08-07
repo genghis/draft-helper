@@ -249,3 +249,54 @@ describe("position and team are read from columns sources already publish", () =
     expect(entries[0]!.team).toBeUndefined();
   });
 });
+
+describe("ranked lines with team and position annotations", () => {
+  const entries = parseRankings(fixture("ranked-lines-annotated.txt"));
+
+  it("splits name, team and position out of the line", () => {
+    expect(entries[0]).toEqual({
+      name: "Bijan Robinson",
+      rank: 1,
+      tier: 1,
+      position: "RB",
+      team: "ATL",
+    });
+  });
+
+  it("keeps the source's own rank, gaps and all", () => {
+    // The list skips from 122 to 126; renumbering would disagree with the
+    // list the user is reading from.
+    const ranks = entries.map((e) => e.rank);
+    expect(ranks).toContain(126);
+    expect(ranks).not.toContain(123);
+  });
+
+  it("keeps both players when a rank repeats", () => {
+    // Published lists really do repeat numbers -- 104 twice here.
+    const at104 = entries.filter((e) => e.rank === 104).map((e) => e.name);
+    expect(at104).toEqual(["Alec Pierce", "Romeo Doubs"]);
+  });
+
+  it("reads defenses, whose name contains the position", () => {
+    const dst = entries.find((e) => e.name.startsWith("Houston"));
+    expect(dst).toMatchObject({ name: "Houston Texans DST", position: "DST", team: "HOU" });
+  });
+
+  it("still handles the plainer shapes", () => {
+    expect(parseRankings("1. Bijan Robinson, ATL")[0]).toMatchObject({
+      name: "Bijan Robinson",
+      team: "ATL",
+    });
+    expect(parseRankings("1. Bijan Robinson")[0]).toMatchObject({ name: "Bijan Robinson" });
+    expect(parseRankings("Bijan Robinson")[0]).toMatchObject({ name: "Bijan Robinson", rank: 1 });
+  });
+
+  it("does not shred a name over a parenthetical that is not a position", () => {
+    // Only a real position label licenses the split.
+    expect(parseRankings("1. Smith, Jr. (see notes)")[0]!.name).toBe("Smith, Jr. (see notes)");
+  });
+
+  it("does not mistake a trailing position label for a team", () => {
+    expect(parseRankings("1. Bijan Robinson, RB")[0]!.name).toBe("Bijan Robinson, RB");
+  });
+});

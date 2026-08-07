@@ -1,4 +1,4 @@
-import type { ParsedEntry } from "../types.js";
+import type { ParsedEntry, Position } from "../types.js";
 import {
   detectDelimiter,
   isJunkName,
@@ -55,6 +55,22 @@ function parseHeaderedCsv(content: string): ParsedEntry[] {
   return entries;
 }
 
+/**
+ * A ranked line, in the shapes people actually paste:
+ *
+ *   1. Bijan Robinson, ATL (RB1)   rank, name, team, position + positional rank
+ *   1. Bijan Robinson, ATL         rank, name, team
+ *   1. Bijan Robinson              rank, name
+ *   Bijan Robinson                 name alone
+ *
+ * The trailing parenthetical is read for its position only; its number is the
+ * source's positional rank, which we already derive from the overall order.
+ */
+const ANNOTATED_LINE =
+  /^(.+?),\s*([A-Za-z]{2,4})\s*\(\s*([A-Za-z/]{1,4})\s*\d*\s*\)\s*$/;
+/** "Name, TEAM" with no parenthetical. */
+const TEAMED_LINE = /^(.+?),\s*([A-Za-z]{2,4})\s*$/;
+
 /** Plain ranked lines: "1. Player Name", "12 Player Name", or bare names. */
 function parsePlainLines(content: string): ParsedEntry[] {
   const entries: ParsedEntry[] = [];
@@ -62,11 +78,43 @@ function parsePlainLines(content: string): ParsedEntry[] {
     const trimmed = line.trim();
     if (!trimmed) continue;
     const m = trimmed.match(/^(\d+)[.)\s]\s*(.+)$/);
-    const name = (m ? m[2]! : trimmed).trim();
+    let rest = (m ? m[2]! : trimmed).trim();
+
+    // Pull the annotations off before the junk check, so a row is judged on
+    // the player's name rather than on the whole decorated line.
+    let position: Position | undefined;
+    let team: string | undefined;
+    const annotated = rest.match(ANNOTATED_LINE);
+    const teamed = annotated ? null : rest.match(TEAMED_LINE);
+    if (annotated) {
+      position = parsePositionCell(annotated[3]);
+      // Only accept the split when the parenthetical really was a position;
+      // "Smith, Jr. (see notes)" must stay one name.
+      if (position) {
+        rest = annotated[1]!.trim();
+        team = annotated[2]!.toUpperCase();
+      }
+    } else if (teamed && parsePositionCell(teamed[2]) === undefined) {
+      // A bare 2-4 letter tail is a team unless it is itself a position label.
+      rest = teamed[1]!.trim();
+      team = teamed[2]!.toUpperCase();
+    }
+
+    const name = rest;
     // Skip a header line a single-column file would otherwise donate as a player.
     if (!name || /^(rank|rk|tier|player|name|pos|position|team)\b/i.test(name)) continue;
     if (isJunkName(name)) continue;
-    entries.push({ name, rank: entries.length + 1, tier: 1 });
+    // Ranks come from the source when it numbered the lines. They are NOT
+    // assumed unique: real lists repeat and skip numbers, and renumbering here
+    // would quietly disagree with the list the user is reading from.
+    const rank = m ? Number(m[1]) : entries.length + 1;
+    entries.push({
+      name,
+      rank: Number.isFinite(rank) ? rank : entries.length + 1,
+      tier: 1,
+      ...(position ? { position } : {}),
+      ...(team ? { team } : {}),
+    });
   }
   return entries;
 }

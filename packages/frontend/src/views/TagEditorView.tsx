@@ -75,8 +75,9 @@ export function TagEditorView({ players, playersById, existingTag, onSaved, onCa
   }
 
   function confirmReview(result: MatchResult) {
-    const resolvedIds = result.unmatched.flatMap((u) =>
-      resolutions[u.entry.rank] ? [resolutions[u.entry.rank]!] : []
+    // Keyed by index, not rank: ranking lists repeat rank numbers.
+    const resolvedIds = result.unmatched.flatMap((_, i) =>
+      resolutions[i] ? [resolutions[i]!] : []
     );
     const matchedIds = result.matched.map((m) => m.player.id);
     setAddedIds((ids) => [...ids, ...matchedIds, ...resolvedIds]);
@@ -150,23 +151,23 @@ export function TagEditorView({ players, playersById, existingTag, onSaved, onCa
             ` — ${result.unmatched.length} need${result.unmatched.length === 1 ? "s" : ""} your eye`}
           .
         </p>
-        {result.unmatched.some((u) => !resolutions[u.entry.rank]) && (
+        {result.unmatched.some((_, i) => !resolutions[i]) && (
           <p className="import-warning">
             Highlighted rows won't be added — pick a player for any you want to keep.
           </p>
         )}
         {result.unmatched.length > 0 && (
           <ul className="import-unmatched">
-            {result.unmatched.map((u) => (
+            {result.unmatched.map((u, i) => (
               <li
-                key={u.entry.rank}
-                className={resolutions[u.entry.rank] ? undefined : "import-unresolved"}
+                key={`${u.entry.rank}-${i}`}
+                className={resolutions[i] ? undefined : "import-unresolved"}
               >
                 <span className="import-source-name">{u.entry.name}</span>
                 <select
-                  value={resolutions[u.entry.rank] ?? ""}
+                  value={resolutions[i] ?? ""}
                   onChange={(e) =>
-                    setResolutions((r) => ({ ...r, [u.entry.rank]: e.target.value }))
+                    setResolutions((r) => ({ ...r, [i]: e.target.value }))
                   }
                 >
                   <option value="">Skip this player</option>

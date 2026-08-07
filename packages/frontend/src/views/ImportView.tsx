@@ -45,7 +45,11 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   /** Identifies the most recent file read, so a slow one cannot clobber a newer action. */
   const readToken = useRef(0);
-  // review-stage selections: entry rank -> chosen playerId ("" = skip)
+  /**
+   * Review-stage selections, keyed by index in `result.unmatched` rather than
+   * by rank ("" = skip). Ranks are not unique -- published lists repeat and
+   * skip numbers -- and two rows sharing a key would share one dropdown.
+   */
   const [resolutions, setResolutions] = useState<Record<number, string>>({});
 
   function startReview(content: string, sourceLabel: string) {
@@ -145,8 +149,8 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
 
   async function createSource(result: MatchResult, sourceLabel: string) {
     setStage({ kind: "creating" });
-    const resolved: MatchedEntry[] = result.unmatched.flatMap((u) => {
-      const playerId = resolutions[u.entry.rank];
+    const resolved: MatchedEntry[] = result.unmatched.flatMap((u, i) => {
+      const playerId = resolutions[i];
       const player = u.candidates.find((c) => c.player.id === playerId)?.player;
       return player ? [{ entry: u.entry, player }] : [];
     });
@@ -170,7 +174,7 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
     const { result, sourceLabel } =
       stage.kind === "review" ? stage : { result: null, sourceLabel: "" };
     if (!result) return <p className="muted">Saving source…</p>;
-    const skipCount = result.unmatched.filter((u) => !resolutions[u.entry.rank]).length;
+    const skipCount = result.unmatched.filter((_, i) => !resolutions[i]).length;
     return (
       <section className="import-view">
         <h2>Review import</h2>
@@ -210,18 +214,18 @@ export function ImportView({ players, onCreated, onCancel }: Props) {
         )}
         {result.unmatched.length > 0 && (
           <ul className="import-unmatched">
-            {result.unmatched.map((u) => (
+            {result.unmatched.map((u, i) => (
               <li
-                key={u.entry.rank}
-                className={resolutions[u.entry.rank] ? undefined : "import-unresolved"}
+                key={`${u.entry.rank}-${i}`}
+                className={resolutions[i] ? undefined : "import-unresolved"}
               >
                 <span className="import-source-name">
                   #{u.entry.rank} {u.entry.name}
                 </span>
                 <select
-                  value={resolutions[u.entry.rank] ?? ""}
+                  value={resolutions[i] ?? ""}
                   onChange={(e) =>
-                    setResolutions((r) => ({ ...r, [u.entry.rank]: e.target.value }))
+                    setResolutions((r) => ({ ...r, [i]: e.target.value }))
                   }
                 >
                   <option value="">Skip this player</option>
