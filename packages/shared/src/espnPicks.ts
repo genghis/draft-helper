@@ -62,6 +62,16 @@ export function canonicalTeamAbbrev(abbrev: string): string {
   return ABBREV_ALIASES[up] ?? up;
 }
 
+const TEAM_ABBREVS = new Set([
+  ...Object.values(ESPN_PRO_TEAMS),
+  ...Object.keys(ABBREV_ALIASES),
+]);
+
+/** Whether a string is a known NFL team abbreviation (canonical or alias). */
+export function isTeamAbbrev(abbrev: string): boolean {
+  return TEAM_ABBREVS.has(abbrev.trim().toUpperCase());
+}
+
 export interface MappedEspnPick {
   playerId: string;
   mine: boolean;

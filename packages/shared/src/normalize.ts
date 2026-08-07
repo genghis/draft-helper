@@ -5,19 +5,44 @@ import type {
   ParsedEntry,
   Player,
 } from "./types.js";
-import { canonicalTeamAbbrev } from "./espnPicks.js";
+import { canonicalTeamAbbrev, isTeamAbbrev } from "./espnPicks.js";
 
 const SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
 const FLEX_POSITIONS = new Set(["RB", "WR", "TE"]);
 const MAX_CANDIDATES = 5;
 
+/**
+ * A position label, optionally with a positional rank ("RB", "WR12").
+ * Duplicated in spirit from the parse layer's parsePositionCell, which cannot
+ * be imported here without a cycle (the parsers import this module).
+ */
+const POSITION_TAIL = /^(qb|rb|wr|te|k|pk|dst|d\/st|def)\s*\d*$/i;
+
+/**
+ * "Mahomes, Patrick" -> "Patrick Mahomes". Only a string shaped like a
+ * flipped name is touched; a comma tail that is a team abbreviation
+ * ("Bijan Robinson, ATL"), a position label ("Bijan Robinson, RB"), or a
+ * lone suffix ("Smith, Jr.") is not a first name, and anything with
+ * parentheses or a second comma is left for the caller's own annotation
+ * handling.
+ */
+export function unflipName(raw: string): string {
+  const m = raw.match(/^([^,()]+),\s*([^,()]+)$/);
+  if (!m) return raw;
+  const tail = m[2]!.trim();
+  if (isTeamAbbrev(tail)) return raw;
+  if (POSITION_TAIL.test(tail)) return raw;
+  if (SUFFIXES.has(tail.toLowerCase().replace(/\./g, ""))) return raw;
+  return `${tail} ${m[1]!.trim()}`;
+}
+
 /** "De'Von Achane Jr." -> "devon achane"; diacritics, punctuation, suffixes gone. */
 export function normalizeName(raw: string): string {
-  return raw
+  return unflipName(raw)
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
-    .replace(/[.'’`]/g, "")
+    .replace(/[.,'’`]/g, "")
     .replace(/[/-]/g, " ")
     .split(/\s+/)
     .filter((t) => t && !SUFFIXES.has(t))

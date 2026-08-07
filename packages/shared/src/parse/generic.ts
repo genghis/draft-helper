@@ -1,4 +1,6 @@
 import type { ParsedEntry, Position } from "../types.js";
+import { isTeamAbbrev } from "../espnPicks.js";
+import { unflipName } from "../normalize.js";
 import {
   detectDelimiter,
   isJunkName,
@@ -38,7 +40,8 @@ function parseHeaderedCsv(content: string): ParsedEntry[] {
   const entries: ParsedEntry[] = [];
   for (const line of lines.slice(1)) {
     const fields = splitCsvLine(line, delimiter);
-    const name = fields[nameCol + offset]?.trim();
+    const cell = fields[nameCol + offset]?.trim();
+    const name = cell ? unflipName(cell) : cell;
     if (!name || isJunkName(name)) continue;
     const rank = rankCol >= 0 ? Number(fields[rankCol + offset]) : NaN;
     const tier = tierCol >= 0 ? Number(fields[tierCol + offset]) : NaN;
@@ -91,16 +94,27 @@ function parsePlainLines(content: string): ParsedEntry[] {
       // Only accept the split when the parenthetical really was a position;
       // "Smith, Jr. (see notes)" must stay one name.
       if (position) {
-        rest = annotated[1]!.trim();
-        team = annotated[2]!.toUpperCase();
+        if (isTeamAbbrev(annotated[2]!)) {
+          rest = annotated[1]!.trim();
+          team = annotated[2]!.toUpperCase();
+        } else {
+          // "Mahomes, Pat (QB1)" — the comma tail is a first name, not a
+          // team; keep it with the name for unflipName below.
+          rest = `${annotated[1]!.trim()}, ${annotated[2]!}`;
+        }
       }
-    } else if (teamed && parsePositionCell(teamed[2]) === undefined) {
-      // A bare 2-4 letter tail is a team unless it is itself a position label.
+    } else if (
+      teamed &&
+      parsePositionCell(teamed[2]) === undefined &&
+      isTeamAbbrev(teamed[2]!)
+    ) {
+      // A short tail is only a team when it is a real team abbreviation and
+      // not a position label; "Allen, Josh" keeps its first name.
       rest = teamed[1]!.trim();
       team = teamed[2]!.toUpperCase();
     }
 
-    const name = rest;
+    const name = unflipName(rest);
     // Skip a header line a single-column file would otherwise donate as a player.
     if (!name || /^(rank|rk|tier|player|name|pos|position|team)\b/i.test(name)) continue;
     if (isJunkName(name)) continue;

@@ -1,4 +1,5 @@
 import type { ParsedEntry, Position } from "../types.js";
+import { unflipName } from "../normalize.js";
 
 /** Parses "Tier 1: A, B, C" lines; rank is order of appearance. */
 export function parseBorisChenText(text: string): ParsedEntry[] {
@@ -163,7 +164,8 @@ export function parseBorisChenCsv(csv: string): ParsedEntry[] {
   const entries: ParsedEntry[] = [];
   for (const line of lines.slice(1)) {
     const fields = splitCsvLine(line, delimiter);
-    const name = fields[nameCol + offset]?.trim();
+    const cell = fields[nameCol + offset]?.trim();
+    const name = cell ? unflipName(cell) : cell;
     if (!name || isJunkName(name)) continue;
     // indexOf returns -1 when a column is absent; adding the offset to that
     // sentinel would silently read column 0 (the row index) as rank or tier.

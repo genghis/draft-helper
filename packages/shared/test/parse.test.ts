@@ -133,8 +133,9 @@ describe("CSV shapes that must not silently degrade", () => {
   it("handles CRLF, a BOM, and quoted separators", () => {
     expect(rows("Rank,Player,Tier\r\n1,Chase,1\r\n2,Lamb,1")).toEqual(["Chase", "Lamb"]);
     expect(rows("\uFEFFRank,Player,Tier\n1,Chase,1")).toEqual(["Chase"]);
-    // A comma inside a quoted field of a TAB file stays part of the name.
-    expect(rows('Player.Name\tTier\n"Smith, John"\t1')).toEqual(["Smith, John"]);
+    // A comma inside a quoted field of a TAB file stays one field -- it
+    // reaches the name reader whole, which then reorders the flipped name.
+    expect(rows('Player.Name\tTier\n"Smith, John"\t1')).toEqual(["John Smith"]);
     // A tab inside a quoted field of a COMMA file does not flip the delimiter.
     expect(rows('Rank,Player,Tier\n1,"A\tB",1')).toEqual(["A\tB"]);
   });
@@ -298,5 +299,57 @@ describe("ranked lines with team and position annotations", () => {
 
   it("does not mistake a trailing position label for a team", () => {
     expect(parseRankings("1. Bijan Robinson, RB")[0]!.name).toBe("Bijan Robinson, RB");
+  });
+});
+
+describe("names entered Lastname, Firstname", () => {
+  it("reorders them in plain ranked lines", () => {
+    expect(parseRankings("1. Mahomes, Patrick")[0]!.name).toBe("Patrick Mahomes");
+    expect(parseRankings("Mahomes, Patrick")[0]!.name).toBe("Patrick Mahomes");
+  });
+
+  it("does not read a short first name as a team", () => {
+    // JOSH and PAT are 2-4 letters, the shape a team tail takes, but they are
+    // not team abbreviations -- they belong to the name.
+    expect(parseRankings("1. Allen, Josh")[0]).toMatchObject({ name: "Josh Allen" });
+    expect(parseRankings("1. Allen, Josh")[0]!.team).toBeUndefined();
+    expect(parseRankings("1. Mahomes, Pat")[0]!.name).toBe("Pat Mahomes");
+  });
+
+  it("still reads a real team tail as a team", () => {
+    expect(parseRankings("1. Mahomes, Patrick, KC")[0]).toMatchObject({
+      name: "Patrick Mahomes",
+      team: "KC",
+    });
+    expect(parseRankings("1. Bijan Robinson, ATL")[0]).toMatchObject({
+      name: "Bijan Robinson",
+      team: "ATL",
+    });
+  });
+
+  it("handles the annotated shape with and without a team", () => {
+    expect(parseRankings("1. Mahomes, Patrick, KC (QB1)")[0]).toMatchObject({
+      name: "Patrick Mahomes",
+      team: "KC",
+      position: "QB",
+    });
+    expect(parseRankings("1. Mahomes, Pat (QB1)")[0]).toMatchObject({
+      name: "Pat Mahomes",
+      position: "QB",
+    });
+  });
+
+  it("reorders them in headered CSV name cells", () => {
+    const entries = parseRankings('Rank,Player,Tier\n1,"Mahomes, Patrick",1\n2,Josh Allen,2');
+    expect(entries.map((e) => e.name)).toEqual(["Patrick Mahomes", "Josh Allen"]);
+  });
+
+  it("reorders them in fftiers-shaped CSV name cells", () => {
+    const entries = parseBorisChenCsv('Rank,Player.Name,Tier\n1,"Mahomes, Patrick",1');
+    expect(entries[0]!.name).toBe("Patrick Mahomes");
+  });
+
+  it("leaves suffix-only comma tails alone", () => {
+    expect(parseRankings("1. Smith, Jr.")[0]!.name).toBe("Smith, Jr.");
   });
 });

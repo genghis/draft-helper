@@ -1,4 +1,5 @@
 import type { ParsedEntry, Position } from "../types.js";
+import { unflipName } from "../normalize.js";
 
 /** ESPN writes D/ST rows as "Jets D/ST, NYJ"; everything else is a person. */
 const POSITIONS: Record<string, Position> = {
@@ -69,7 +70,7 @@ export function parseEspnPdfLines(lines: string[]): ParsedEntry[] {
 
     const rank = Number(head[1]);
     const position = POSITIONS[head[2]!.toUpperCase()];
-    const name = body[1]!.trim();
+    const name = unflipName(body[1]!.trim());
     if (!name || !Number.isFinite(rank)) continue;
 
     // First occurrence wins: a repeated header line re-emits rank 1.
